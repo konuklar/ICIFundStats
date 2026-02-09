@@ -5,11 +5,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-import requests
-from io import StringIO
 import warnings
 from scipy import stats
-from statsmodels.tsa.seasonal import seasonal_decompose
 import calendar
 warnings.filterwarnings('ignore')
 
@@ -1067,10 +1064,14 @@ def create_enhanced_flow_analysis(data_dict, frequency):
                             hovertemplate='%{x|%b %Y}<br>Lower: $%{y:,.0f}M<extra></extra>'
                         ))
                         
-                        # Fill between bands
+                        # Fill between bands - FIXED VERSION
+                        # Create combined x and y for fill area
+                        x_combined = list(upper_band.index) + list(lower_band.index[::-1])
+                        y_combined = list(upper_band.values) + list(lower_band.values[::-1])
+                        
                         fig_bb.add_trace(go.Scatter(
-                            x=pd.concat([upper_band.index, lower_band.index[::-1]]),
-                            y=pd.concat([upper_band, lower_band[::-1]]),
+                            x=x_combined,
+                            y=y_combined,
                             fill='toself',
                             fillcolor='rgba(52, 152, 219, 0.1)',
                             line=dict(color='rgba(255,255,255,0)'),
@@ -1657,9 +1658,6 @@ def create_advanced_analytics(data_dict):
                         
                         with col2:
                             # Q-Q plot
-                            from scipy import stats
-                            import numpy as np
-                            
                             qq = stats.probplot(flows, dist="norm")
                             x = np.array([qq[0][0][0], qq[0][0][-1]])
                             
@@ -1694,10 +1692,8 @@ def create_advanced_analytics(data_dict):
                             st.plotly_chart(fig_qq, use_container_width=True)
                         
                         # Normality test
-                        from scipy.stats import shapiro
-                        
                         if len(flows) <= 5000:  # Shapiro test limitation
-                            stat, p_value = shapiro(flows)
+                            stat, p_value = stats.shapiro(flows)
                             
                             st.markdown(f"""
                             ##### Normality Test Results
