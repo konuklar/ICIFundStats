@@ -10,12 +10,13 @@ import datetime
 from datetime import datetime, timedelta
 import warnings
 from scipy import stats
+import calendar
 warnings.filterwarnings('ignore')
 
 # Page configuration
 st.set_page_config(
-    page_title="ICI Mutual Fund Flows - Growth Dynamics",
-    page_icon="📈",
+    page_title="ICI Mutual Fund Flows - Institutional Dashboard",
+    page_icon="🏦",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -57,13 +58,23 @@ st.markdown("""
         padding-bottom: 0.5rem;
         margin: 2rem 0 1rem 0;
     }
-    .analysis-card {
+    .data-table {
         background: white;
         border-radius: 10px;
-        padding: 1.5rem;
-        margin: 1rem 0;
+        padding: 1rem;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #3B82F6;
+    }
+    .positive-flow {
+        color: #10B981;
+        font-weight: 600;
+    }
+    .negative-flow {
+        color: #EF4444;
+        font-weight: 600;
+    }
+    .year-highlight {
+        background-color: #EFF6FF;
+        font-weight: 600;
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 1rem;
@@ -84,25 +95,26 @@ st.markdown("""
         color: white !important;
         border-color: #3B82F6 !important;
     }
-    .correlation-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 15px;
-        font-size: 0.85rem;
+    .download-btn {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
         font-weight: 500;
-        margin: 0.25rem;
+        cursor: pointer;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # Title with institutional styling
-st.markdown('<h1 class="main-header">📈 ICI Mutual Fund Flows - Growth Dynamics Analysis</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Advanced Visualization of Normalized Growth, Inflow/Outflow Dynamics & Correlation Analysis</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">🏦 ICI Mutual Fund Flows - Institutional Dashboard</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Comprehensive Monthly Analysis of Net New Cash Flows by Investment Class | 2007 - Present</p>', unsafe_allow_html=True)
 
-# Sample data generation with realistic patterns
+# Enhanced sample data generation
 @st.cache_data
-def generate_realistic_sample_data(start_date='2007-01-01', end_date=None):
-    """Generate realistic sample data with proper correlations and trends"""
+def generate_enhanced_sample_data(start_date='2007-01-01', end_date=None):
+    """Generate realistic sample data with seasonal patterns and correlations"""
     if end_date is None:
         end_date = datetime.now().strftime('%Y-%m-%d')
     
@@ -110,46 +122,52 @@ def generate_realistic_sample_data(start_date='2007-01-01', end_date=None):
     n = len(dates)
     np.random.seed(42)
     
-    # Base trends with correlations
-    time_index = np.arange(n)
+    # Time index for trend calculations
+    t = np.arange(n)
     
-    # Equity funds - correlated with market cycles
-    equity_trend = 0.5 * time_index
-    equity_seasonal = 3000 * np.sin(2 * np.pi * time_index / 12)
-    equity_random = np.random.normal(0, 4000, n)
+    # Generate base components with realistic correlations
+    # Common market factor affecting all categories
+    market_factor = 5000 * np.sin(2 * np.pi * t / 60)  # 5-year market cycle
+    market_factor += 2000 * np.sin(2 * np.pi * t / 12)  # Annual seasonality
+    market_factor += np.random.normal(0, 3000, n)  # Random noise
     
-    # Add market cycles (4-year cycles)
-    market_cycle = 8000 * np.sin(2 * np.pi * time_index / 48)
+    # Equity funds - highest volatility, positive long-term trend
+    equity_trend = 150 * t  # Long-term growth
+    equity_seasonal = 4000 * np.sin(2 * np.pi * t / 12 + np.pi/4)  # Strong seasonality
+    equity = 8000 + equity_trend + 1.5 * market_factor + equity_seasonal
     
-    # Add crisis effects
-    crisis_2008 = np.exp(-((time_index - 20)**2) / 50) * -25000  # Sep 2008
-    covid_2020 = np.exp(-((time_index - 160)**2) / 10) * -35000  # Mar 2020
+    # Bond funds - moderate growth, negatively correlated with equity during crises
+    bond_trend = 80 * t
+    bond_seasonal = 2000 * np.sin(2 * np.pi * t / 12)
+    bond = 5000 + bond_trend + 0.8 * market_factor + bond_seasonal
     
-    equity = 10000 + equity_trend + equity_seasonal + equity_random + market_cycle + crisis_2008 + covid_2020
-    
-    # Bond funds - negatively correlated with equity during crises, positive trend
-    bond_trend = 0.3 * time_index
-    bond_random = np.random.normal(0, 2000, n)
-    # Flight to safety during equity crises
-    bond_crisis_2008 = np.exp(-((time_index - 20)**2) / 50) * 15000
-    bond_covid_2020 = np.exp(-((time_index - 160)**2) / 10) * 20000
-    
-    bond = 5000 + bond_trend + bond_random + bond_crisis_2008 + bond_covid_2020
-    
-    # Money Market - extreme spikes during crises
-    mm_trend = 0.1 * time_index
-    mm_random = np.random.normal(0, 3000, n)
-    mm_crisis_2008 = np.exp(-((time_index - 20)**2) / 30) * 60000
-    mm_covid_2020 = np.exp(-((time_index - 160)**2) / 8) * 80000
-    
-    money_market = 10000 + mm_trend + mm_random + mm_crisis_2008 + mm_covid_2020
+    # Money Market - flight to safety during crises
+    mm_trend = 40 * t
+    mm_seasonal = 3000 * np.sin(2 * np.pi * t / 12 - np.pi/2)
+    money_market = 10000 + mm_trend + 1.2 * market_factor + mm_seasonal
     
     # Hybrid funds - mixture of equity and bond
-    hybrid = 0.6 * equity + 0.4 * bond + np.random.normal(0, 1000, n)
+    hybrid = 0.6 * equity + 0.4 * bond + np.random.normal(0, 1500, n)
+    
+    # Add specific crisis events
+    # 2008 Financial Crisis
+    crisis_2008 = (t >= 20) & (t <= 25)
+    equity[crisis_2008] -= 25000
+    bond[crisis_2008] += 18000
+    money_market[crisis_2008] += 60000
+    
+    # 2020 COVID Crisis
+    crisis_2020 = (t >= 160) & (t <= 165)
+    equity[crisis_2020] -= 35000
+    bond[crisis_2020] += 22000
+    money_market[crisis_2020] += 85000
     
     # Create DataFrame
     df = pd.DataFrame({
         'Date': dates,
+        'Year': dates.year,
+        'Month': dates.month,
+        'Month_Name': dates.strftime('%B'),
         'Equity': np.round(equity).astype(int),
         'Bond': np.round(bond).astype(int),
         'Hybrid': np.round(hybrid).astype(int),
@@ -163,7 +181,7 @@ def generate_realistic_sample_data(start_date='2007-01-01', end_date=None):
     for category in ['Equity', 'Bond', 'Hybrid', 'Money Market', 'Total']:
         df[f'{category}_Cumulative'] = df[category].cumsum()
     
-    # Add normalized monthly changes
+    # Calculate monthly changes
     for category in ['Equity', 'Bond', 'Hybrid', 'Money Market', 'Total']:
         df[f'{category}_Monthly_Change'] = df[category].pct_change() * 100
         df[f'{category}_Normalized'] = 100 * (df[category] - df[category].mean()) / df[category].std()
@@ -173,33 +191,40 @@ def generate_realistic_sample_data(start_date='2007-01-01', end_date=None):
         df[f'{category}_Inflow'] = df[category].clip(lower=0)
         df[f'{category}_Outflow'] = df[category].clip(upper=0).abs()
     
+    # Add quarterly and annual aggregations
+    df['Quarter'] = df['Date'].dt.quarter
+    df['YearQuarter'] = df['Year'].astype(str) + '-Q' + df['Quarter'].astype(str)
+    
     return df
 
 # Load data
-df = generate_realistic_sample_data()
+df = generate_enhanced_sample_data()
 
 # Sidebar controls
 with st.sidebar:
     st.image("https://www.ici.org/themes/custom/ici/logo.svg", width=200)
     st.markdown("---")
     
-    st.header("📊 Growth Analysis Controls")
+    st.header("📊 Dashboard Controls")
     
-    # Date range
-    st.subheader("Time Period")
+    # Date range filter
     if 'Date' in df.columns:
         min_date = df['Date'].min().date()
         max_date = df['Date'].max().date()
         
-        start_date, end_date = st.date_input(
-            "Select Analysis Period",
+        date_range = st.date_input(
+            "Select Date Range",
             value=(max_date - timedelta(days=365*5), max_date),
             min_value=min_date,
             max_value=max_date
         )
         
-        mask = (df['Date'].dt.date >= start_date) & (df['Date'].dt.date <= end_date)
-        df_filtered = df[mask].copy()
+        if len(date_range) == 2:
+            start_date, end_date = date_range
+            mask = (df['Date'].dt.date >= start_date) & (df['Date'].dt.date <= end_date)
+            df_filtered = df[mask].copy()
+        else:
+            df_filtered = df.copy()
     else:
         df_filtered = df.copy()
     
@@ -211,662 +236,1086 @@ with st.sidebar:
         default=['Equity', 'Bond', 'Money Market']
     )
     
-    # Normalization options
-    st.subheader("Normalization Settings")
-    normalize_method = st.selectbox(
-        "Normalization Method",
-        ["Z-Score", "Min-Max (0-100)", "Percentage of Max", "Log Scale"]
-    )
-    
     # Display options
     st.subheader("Display Options")
-    show_trend_lines = st.checkbox("Show Trend Lines", True)
-    show_moving_average = st.checkbox("Show 12-Month Moving Average", True)
-    show_correlation = st.checkbox("Show Correlation Matrix", True)
+    show_cumulative = st.checkbox("Show Cumulative Data", True)
+    show_monthly_changes = st.checkbox("Show Monthly Changes", True)
+    show_normalized = st.checkbox("Show Normalized Views", True)
     
-    # Analysis depth
-    st.subheader("Analysis Depth")
-    analysis_level = st.select_slider(
-        "Analysis Detail Level",
-        options=["Basic", "Intermediate", "Advanced", "Expert"],
-        value="Advanced"
+    # Data aggregation
+    st.subheader("Data Aggregation")
+    aggregation_level = st.selectbox(
+        "Aggregation Level",
+        ["Monthly", "Quarterly", "Annual"],
+        index=0
     )
     
     st.markdown("---")
-    st.markdown("**Note:** All figures in millions of USD")
-    st.markdown("Negative values indicate outflows")
+    st.markdown("### Data Source")
+    st.markdown("**Investment Company Institute (ICI)**")
+    st.markdown("Monthly Mutual Fund Flows")
+    st.markdown("All figures in millions USD")
 
-# Main content - Growth Dynamics Dashboard
-st.markdown('<div class="section-header">🌱 Cumulative Growth Analysis</div>', unsafe_allow_html=True)
-
-# Key metrics row
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    total_growth = ((df_filtered['Total_Cumulative'].iloc[-1] - df_filtered['Total_Cumulative'].iloc[0]) 
-                   / abs(df_filtered['Total_Cumulative'].iloc[0])) * 100 if len(df_filtered) > 1 else 0
-    st.metric(
-        "Total Cumulative Growth",
-        f"${df_filtered['Total_Cumulative'].iloc[-1]:,.0f}M",
-        f"{total_growth:+.1f}%"
-    )
-
-with col2:
-    equity_growth = ((df_filtered['Equity_Cumulative'].iloc[-1] - df_filtered['Equity_Cumulative'].iloc[0]) 
-                    / abs(df_filtered['Equity_Cumulative'].iloc[0])) * 100 if len(df_filtered) > 1 else 0
-    st.metric(
-        "Equity Growth",
-        f"${df_filtered['Equity_Cumulative'].iloc[-1]:,.0f}M",
-        f"{equity_growth:+.1f}%"
-    )
-
-with col3:
-    months_inflow = (df_filtered['Total'] > 0).sum()
-    total_months = len(df_filtered)
-    inflow_ratio = (months_inflow / total_months) * 100
-    st.metric(
-        "Inflow Months Ratio",
-        f"{months_inflow}/{total_months}",
-        f"{inflow_ratio:.1f}%"
-    )
-
-with col4:
-    volatility = df_filtered['Total'].std() / abs(df_filtered['Total'].mean()) if df_filtered['Total'].mean() != 0 else 0
-    st.metric(
-        "Flow Volatility",
-        f"{volatility:.3f}",
-        "Coefficient of Variation"
-    )
-
-# Tabs for different visualizations
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Normalized Growth Trends",
-    "📈 Inflow/Outflow Dynamics",
-    "🔄 Monthly Changes Analysis",
-    "🔍 Advanced Statistics"
+# Tabs for different sections
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📋 Monthly Data Table",
+    "📈 Growth Dynamics",
+    "📊 Inflow/Outflow Analysis",
+    "🥧 Composition Analysis",
+    "📉 Performance Metrics"
 ])
 
 with tab1:
-    # Normalized Growth Trends
-    st.markdown("### Normalized Cumulative Growth Index (Base = 100)")
+    # Monthly Data Table - Enhanced with filtering and sorting
+    st.markdown('<div class="section-header">📋 Monthly Mutual Fund Flows Data</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([3, 1])
+    # Quick metrics
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        # Create normalized growth chart with separate y-axes to prevent overlap
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=['Equity & Bond Growth', 'Hybrid & Money Market Growth',
-                          'Normalized Monthly Flows', 'Relative Performance'],
-            vertical_spacing=0.15,
-            horizontal_spacing=0.15,
-            specs=[[{'secondary_y': True}, {'secondary_y': True}],
-                   [{'secondary_y': False}, {'secondary_y': False}]]
+        total_flow = df_filtered['Total'].sum()
+        st.metric("Total Net Flow", f"${total_flow:,.0f}M")
+    
+    with col2:
+        avg_monthly = df_filtered['Total'].mean()
+        st.metric("Avg Monthly Flow", f"${avg_monthly:,.0f}M")
+    
+    with col3:
+        inflow_months = (df_filtered['Total'] > 0).sum()
+        total_months = len(df_filtered)
+        st.metric("Inflow Months", f"{inflow_months}/{total_months}")
+    
+    with col4:
+        latest_date = df_filtered['Date'].iloc[-1].strftime('%B %Y')
+        st.metric("Latest Data", latest_date)
+    
+    # Data filtering controls
+    st.markdown("### Data Filters")
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
+    
+    with filter_col1:
+        year_filter = st.multiselect(
+            "Filter by Year",
+            options=sorted(df_filtered['Year'].unique(), reverse=True),
+            default=[]
+        )
+    
+    with filter_col2:
+        month_filter = st.multiselect(
+            "Filter by Month",
+            options=list(range(1, 13)),
+            format_func=lambda x: calendar.month_name[x]
+        )
+    
+    with filter_col3:
+        flow_direction = st.selectbox(
+            "Flow Direction",
+            ["All Flows", "Inflows Only", "Outflows Only"]
+        )
+    
+    # Apply filters
+    df_display = df_filtered.copy()
+    
+    if year_filter:
+        df_display = df_display[df_display['Year'].isin(year_filter)]
+    
+    if month_filter:
+        df_display = df_display[df_display['Month'].isin(month_filter)]
+    
+    if flow_direction == "Inflows Only":
+        df_display = df_display[df_display['Total'] > 0]
+    elif flow_direction == "Outflows Only":
+        df_display = df_display[df_display['Total'] < 0]
+    
+    # Data table with enhanced formatting
+    st.markdown("### Monthly Flow Data")
+    
+    # Create display dataframe with formatted columns
+    display_cols = ['Date', 'Year', 'Month_Name'] + categories
+    if 'Total' not in categories:
+        display_cols.append('Total')
+    
+    df_formatted = df_display[display_cols].copy()
+    
+    # Format numeric columns
+    for col in ['Equity', 'Bond', 'Hybrid', 'Money Market', 'Total']:
+        if col in df_formatted.columns:
+            df_formatted[col] = df_formatted[col].apply(
+                lambda x: f"<span class='positive-flow'>${x:,.0f}M</span>" if x > 0 
+                else f"<span class='negative-flow'>${x:,.0f}M</span>" if x < 0 
+                else f"${x:,.0f}M"
+            )
+    
+    # Display table
+    st.markdown('<div class="data-table">', unsafe_allow_html=True)
+    
+    # Use Streamlit's data_editor for interactive features
+    st.data_editor(
+        df_formatted,
+        use_container_width=True,
+        height=500,
+        column_config={
+            "Date": st.column_config.DateColumn(
+                "Date",
+                format="YYYY-MM",
+                width="small"
+            ),
+            "Year": st.column_config.NumberColumn(
+                "Year",
+                format="%d",
+                width="small"
+            ),
+            "Month_Name": st.column_config.TextColumn(
+                "Month",
+                width="small"
+            ),
+            "Equity": st.column_config.TextColumn(
+                "Equity",
+                width="medium"
+            ),
+            "Bond": st.column_config.TextColumn(
+                "Bond",
+                width="medium"
+            ),
+            "Hybrid": st.column_config.TextColumn(
+                "Hybrid",
+                width="medium"
+            ),
+            "Money Market": st.column_config.TextColumn(
+                "Money Market",
+                width="medium"
+            ),
+            "Total": st.column_config.TextColumn(
+                "Total",
+                width="medium"
+            )
+        },
+        hide_index=True
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Summary statistics
+    st.markdown("### Summary Statistics")
+    
+    summary_cols = st.columns(len(categories))
+    
+    for idx, category in enumerate(categories):
+        with summary_cols[idx]:
+            if category in df_display.columns:
+                stats_data = {
+                    'Mean': f"${df_display[category].mean():,.0f}M",
+                    'Median': f"${df_display[category].median():,.0f}M",
+                    'Std Dev': f"${df_display[category].std():,.0f}M",
+                    'Min': f"${df_display[category].min():,.0f}M",
+                    'Max': f"${df_display[category].max():,.0f}M"
+                }
+                
+                st.markdown(f"**{category}**")
+                for stat, value in stats_data.items():
+                    st.markdown(f"{stat}: {value}")
+    
+    # Download options
+    st.markdown("### Export Data")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        csv = df_display.to_csv(index=False)
+        st.download_button(
+            label="📥 Download CSV",
+            data=csv,
+            file_name="ici_monthly_flows.csv",
+            mime="text/csv"
+        )
+    
+    with col2:
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            df_display.to_excel(writer, sheet_name='Monthly Flows', index=False)
+            # Add summary sheet
+            summary_df = pd.DataFrame({
+                'Metric': ['Total Months', 'Total Net Flow', 'Average Monthly', 
+                          'Max Inflow', 'Max Outflow', 'Inflow Months', 'Outflow Months'],
+                'Value': [
+                    len(df_display),
+                    f"${df_display['Total'].sum():,.0f}M",
+                    f"${df_display['Total'].mean():,.0f}M",
+                    f"${df_display['Total'].max():,.0f}M",
+                    f"${abs(df_display['Total'].min()):,.0f}M",
+                    (df_display['Total'] > 0).sum(),
+                    (df_display['Total'] < 0).sum()
+                ]
+            })
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+        
+        st.download_button(
+            label="📊 Download Excel",
+            data=excel_buffer.getvalue(),
+            file_name="ici_flows_detailed.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    
+    with col3:
+        # Quick summary PDF (simulated)
+        st.download_button(
+            label="📄 Download Summary PDF",
+            data=csv,
+            file_name="ici_flows_summary.txt",
+            mime="text/plain"
+        )
+
+with tab2:
+    # Growth Dynamics - Fixed overlapping issues
+    st.markdown('<div class="section-header">📈 Normalized Growth Trends Analysis</div>', unsafe_allow_html=True)
+    
+    # Control panel for growth charts
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        normalization_type = st.selectbox(
+            "Normalization Method",
+            ["Index (Base=100)", "Z-Score", "Min-Max Scaling", "Percentage of Mean"]
+        )
+    
+    with col2:
+        chart_type = st.selectbox(
+            "Chart Type",
+            ["Line Chart", "Area Chart", "Bar Chart", "Combined"]
+        )
+    
+    with col3:
+        smoothing_window = st.slider("Smoothing Window (months)", 1, 12, 3)
+    
+    # Create non-overlapping growth charts
+    st.markdown("### Cumulative Growth Index (Base = 100)")
+    
+    # Calculate normalized growth
+    normalized_data = pd.DataFrame()
+    normalized_data['Date'] = df_filtered['Date']
+    
+    for category in categories:
+        if f'{category}_Cumulative' in df_filtered.columns:
+            cumulative = df_filtered[f'{category}_Cumulative']
+            
+            if normalization_type == "Index (Base=100)":
+                normalized_data[category] = 100 * cumulative / cumulative.iloc[0]
+            elif normalization_type == "Z-Score":
+                normalized_data[category] = (cumulative - cumulative.mean()) / cumulative.std()
+            elif normalization_type == "Min-Max Scaling":
+                normalized_data[category] = 100 * (cumulative - cumulative.min()) / (cumulative.max() - cumulative.min())
+            elif normalization_type == "Percentage of Mean":
+                normalized_data[category] = 100 * cumulative / cumulative.mean()
+    
+    # Create separate charts for better readability
+    if len(categories) <= 3:
+        # Use single chart with clear differentiation
+        fig_growth = go.Figure()
+        
+        colors = px.colors.qualitative.Bold
+        line_styles = ['solid', 'dash', 'dot', 'dashdot']
+        
+        for i, category in enumerate(categories):
+            if category in normalized_data.columns:
+                # Apply smoothing if selected
+                if smoothing_window > 1:
+                    y_data = normalized_data[category].rolling(window=smoothing_window).mean()
+                else:
+                    y_data = normalized_data[category]
+                
+                fig_growth.add_trace(go.Scatter(
+                    x=normalized_data['Date'],
+                    y=y_data,
+                    name=category,
+                    mode='lines',
+                    line=dict(
+                        color=colors[i % len(colors)],
+                        width=3,
+                        dash=line_styles[i % len(line_styles)]
+                    ),
+                    hovertemplate='%{x|%b %Y}<br>' +
+                                f'{category}: %{{y:.1f}}<br>' +
+                                '<extra></extra>'
+                ))
+        
+        fig_growth.update_layout(
+            title=f"Normalized Growth Trends ({normalization_type})",
+            xaxis_title="Date",
+            yaxis_title="Normalized Value",
+            height=500,
+            hovermode='x unified',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            plot_bgcolor='rgba(240, 240, 240, 0.5)'
         )
         
-        # Plot 1: Equity vs Bond (top left)
-        if 'Equity' in categories and 'Bond' in categories:
-            # Normalize to starting point = 100
-            equity_norm = 100 * df_filtered['Equity_Cumulative'] / df_filtered['Equity_Cumulative'].iloc[0]
-            bond_norm = 100 * df_filtered['Bond_Cumulative'] / df_filtered['Bond_Cumulative'].iloc[0]
-            
-            fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=equity_norm,
-                          name='Equity', line=dict(color='#1f77b4', width=3),
-                          mode='lines'),
-                row=1, col=1
-            )
-            
-            fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=bond_norm,
-                          name='Bond', line=dict(color='#2ca02c', width=3, dash='dash'),
-                          mode='lines'),
-                row=1, col=1, secondary_y=True
-            )
+        st.plotly_chart(fig_growth, use_container_width=True)
+    
+    else:
+        # Use subplots for 4+ categories
+        n_cols = 2
+        n_rows = (len(categories) + 1) // 2
         
-        # Plot 2: Hybrid vs Money Market (top right)
-        if 'Hybrid' in categories and 'Money Market' in categories:
-            hybrid_norm = 100 * df_filtered['Hybrid_Cumulative'] / df_filtered['Hybrid_Cumulative'].iloc[0]
-            mm_norm = 100 * df_filtered['Money Market_Cumulative'] / df_filtered['Money Market_Cumulative'].iloc[0]
-            
-            fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=hybrid_norm,
-                          name='Hybrid', line=dict(color='#ff7f0e', width=3),
-                          mode='lines'),
-                row=1, col=2
-            )
-            
-            fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=mm_norm,
-                          name='Money Market', line=dict(color='#d62728', width=3, dash='dash'),
-                          mode='lines'),
-                row=1, col=2, secondary_y=True
-            )
+        fig_growth = make_subplots(
+            rows=n_rows, cols=n_cols,
+            subplot_titles=categories,
+            vertical_spacing=0.15,
+            horizontal_spacing=0.15
+        )
         
-        # Plot 3: Normalized monthly flows (bottom left)
-        if 'Total' in df_filtered.columns:
-            # Z-score normalization for monthly flows
-            monthly_mean = df_filtered['Total'].mean()
-            monthly_std = df_filtered['Total'].std()
-            monthly_zscore = (df_filtered['Total'] - monthly_mean) / monthly_std
+        for i, category in enumerate(categories):
+            row = (i // n_cols) + 1
+            col = (i % n_cols) + 1
             
-            fig.add_trace(
-                go.Bar(x=df_filtered['Date'], y=monthly_zscore,
-                      name='Normalized Monthly Flow',
-                      marker_color=['#2ecc71' if x > 0 else '#e74c3c' for x in monthly_zscore]),
-                row=2, col=1
-            )
+            if category in normalized_data.columns:
+                # Apply smoothing if selected
+                if smoothing_window > 1:
+                    y_data = normalized_data[category].rolling(window=smoothing_window).mean()
+                else:
+                    y_data = normalized_data[category]
+                
+                fig_growth.add_trace(
+                    go.Scatter(
+                        x=normalized_data['Date'],
+                        y=y_data,
+                        name=category,
+                        mode='lines',
+                        line=dict(color=px.colors.qualitative.Set1[i % 10], width=2)
+                    ),
+                    row=row, col=col
+                )
+        
+        fig_growth.update_layout(
+            title=f"Normalized Growth Trends by Category ({normalization_type})",
+            height=300 * n_rows,
+            showlegend=False,
+            plot_bgcolor='rgba(240, 240, 240, 0.5)'
+        )
+        
+        st.plotly_chart(fig_growth, use_container_width=True)
+    
+    # Dynamic pie charts for composition over time
+    st.markdown("### Dynamic Composition Analysis")
+    
+    # Time slider for pie chart animation
+    if 'Date' in df_filtered.columns:
+        time_index = st.slider(
+            "Select time period for composition analysis",
+            0, len(df_filtered)-1,
+            len(df_filtered)-1,
+            format="Month %d (%Y)"
+        )
+        
+        selected_date = df_filtered['Date'].iloc[time_index]
+        selected_data = df_filtered.iloc[time_index]
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Inflow composition pie chart
+            inflow_data = {}
+            for category in categories:
+                if f'{category}_Inflow' in selected_data:
+                    inflow_val = selected_data[f'{category}_Inflow']
+                    if inflow_val > 0:
+                        inflow_data[category] = inflow_val
             
-            # Add 12-month moving average
-            if show_moving_average:
-                ma_12 = monthly_zscore.rolling(window=12).mean()
-                fig.add_trace(
-                    go.Scatter(x=df_filtered['Date'], y=ma_12,
-                              name='12-Month MA',
-                              line=dict(color='#2c3e50', width=2)),
+            if inflow_data:
+                fig_inflow_pie = go.Figure(data=[go.Pie(
+                    labels=list(inflow_data.keys()),
+                    values=list(inflow_data.values()),
+                    hole=0.4,
+                    marker=dict(colors=px.colors.qualitative.Pastel),
+                    hovertemplate="%{label}<br>$%{value:.0f}M<br>%{percent}"
+                )])
+                
+                fig_inflow_pie.update_layout(
+                    title=f"Inflow Composition - {selected_date.strftime('%b %Y')}",
+                    height=350
+                )
+                st.plotly_chart(fig_inflow_pie, use_container_width=True)
+        
+        with col2:
+            # Outflow composition pie chart
+            outflow_data = {}
+            for category in categories:
+                if f'{category}_Outflow' in selected_data:
+                    outflow_val = selected_data[f'{category}_Outflow']
+                    if outflow_val > 0:
+                        outflow_data[category] = outflow_val
+            
+            if outflow_data:
+                fig_outflow_pie = go.Figure(data=[go.Pie(
+                    labels=list(outflow_data.keys()),
+                    values=list(outflow_data.values()),
+                    hole=0.4,
+                    marker=dict(colors=px.colors.qualitative.Pastel2),
+                    hovertemplate="%{label}<br>$%{value:.0f}M<br>%{percent}"
+                )])
+                
+                fig_outflow_pie.update_layout(
+                    title=f"Outflow Composition - {selected_date.strftime('%b %Y')}",
+                    height=350
+                )
+                st.plotly_chart(fig_outflow_pie, use_container_width=True)
+        
+        with col3:
+            # Net flow composition pie chart
+            net_data = {}
+            for category in categories:
+                if category in selected_data:
+                    net_val = selected_data[category]
+                    if net_val != 0:
+                        net_data[category] = abs(net_val)
+            
+            if net_data:
+                fig_net_pie = go.Figure(data=[go.Pie(
+                    labels=list(net_data.keys()),
+                    values=list(net_data.values()),
+                    hole=0.4,
+                    marker=dict(colors=px.colors.qualitative.Set3),
+                    hovertemplate="%{label}<br>$%{value:.0f}M<br>%{percent}"
+                )])
+                
+                fig_net_pie.update_layout(
+                    title=f"Absolute Flow Composition - {selected_date.strftime('%b %Y')}",
+                    height=350
+                )
+                st.plotly_chart(fig_net_pie, use_container_width=True)
+    
+    # Monthly changes analysis
+    if show_monthly_changes:
+        st.markdown("### Monthly Percentage Changes")
+        
+        changes_fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=['Monthly Percentage Changes', 'Cumulative Effect of Changes'],
+            vertical_spacing=0.15
+        )
+        
+        # Monthly percentage changes
+        for i, category in enumerate(categories):
+            if f'{category}_Monthly_Change' in df_filtered.columns:
+                changes_fig.add_trace(
+                    go.Scatter(
+                        x=df_filtered['Date'],
+                        y=df_filtered[f'{category}_Monthly_Change'],
+                        name=category,
+                        mode='lines',
+                        line=dict(width=2),
+                        hovertemplate='%{x|%b %Y}<br>' +
+                                    f'{category}: %{{y:.1f}}%'
+                    ),
+                    row=1, col=1
+                )
+        
+        # Cumulative effect
+        for category in categories:
+            if category in df_filtered.columns:
+                cumulative_effect = (1 + df_filtered[category].pct_change()).cumprod() * 100
+                changes_fig.add_trace(
+                    go.Scatter(
+                        x=df_filtered['Date'],
+                        y=cumulative_effect,
+                        name=f"{category} Cumulative",
+                        mode='lines',
+                        line=dict(width=2, dash='dash'),
+                        showlegend=True
+                    ),
                     row=2, col=1
                 )
         
-        # Plot 4: Relative performance heatmap (bottom right)
-        if len(categories) > 1:
-            # Calculate monthly returns
-            returns_data = []
-            for category in categories:
-                if f'{category}_Monthly_Change' in df_filtered.columns:
-                    returns_data.append(df_filtered[f'{category}_Monthly_Change'].tail(24))  # Last 2 years
-            
-            if returns_data:
-                returns_df = pd.DataFrame(returns_data).T
-                returns_df.columns = categories
-                
-                fig.add_trace(
-                    go.Heatmap(z=returns_df.values,
-                              x=returns_df.columns,
-                              y=returns_df.index,
-                              colorscale='RdBu',
-                              zmid=0,
-                              colorbar=dict(title="Monthly % Change")),
-                    row=2, col=2
-                )
+        changes_fig.update_layout(
+            height=700,
+            hovermode='x unified',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
         
-        fig.update_layout(height=800, showlegend=True, title_text="Multi-Panel Growth Analysis")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.markdown("### Growth Statistics")
+        changes_fig.update_yaxes(title_text="Monthly % Change", row=1, col=1)
+        changes_fig.update_yaxes(title_text="Cumulative Index (Base=100)", row=2, col=1)
         
-        growth_stats = []
-        for category in categories:
-            if f'{category}_Cumulative' in df_filtered.columns:
-                start_val = df_filtered[f'{category}_Cumulative'].iloc[0]
-                end_val = df_filtered[f'{category}_Cumulative'].iloc[-1]
-                total_growth = end_val - start_val
-                growth_pct = (total_growth / abs(start_val)) * 100 if start_val != 0 else 0
-                
-                # Calculate CAGR
-                years = len(df_filtered) / 12
-                if years > 0 and start_val != 0:
-                    cagr = ((end_val / abs(start_val)) ** (1/years) - 1) * 100
-                else:
-                    cagr = 0
-                
-                growth_stats.append({
-                    'Category': category,
-                    'Total Growth': f"${total_growth:,.0f}M",
-                    'Growth %': f"{growth_pct:+.1f}%",
-                    'CAGR': f"{cagr:+.1f}%"
-                })
-        
-        if growth_stats:
-            stats_df = pd.DataFrame(growth_stats)
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        st.plotly_chart(changes_fig, use_container_width=True)
 
-with tab2:
-    # Inflow/Outflow Dynamics
-    st.markdown("### Separate Inflow and Outflow Analysis")
+with tab3:
+    # Inflow/Outflow Analysis
+    st.markdown('<div class="section-header">📊 Inflow vs Outflow Dynamics</div>', unsafe_allow_html=True)
     
+    # Separate inflow and outflow analysis
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("#### Monthly Inflows by Category")
+        st.markdown("#### Monthly Inflows")
         
-        inflow_data = []
+        # Prepare inflow data
+        inflow_df = pd.DataFrame({'Date': df_filtered['Date']})
         for category in categories:
             if f'{category}_Inflow' in df_filtered.columns:
-                inflow_data.append(go.Bar(
+                inflow_df[category] = df_filtered[f'{category}_Inflow']
+        
+        fig_inflows = go.Figure()
+        
+        for category in categories:
+            if category in inflow_df.columns:
+                fig_inflows.add_trace(go.Bar(
                     name=category,
-                    x=df_filtered['Date'],
-                    y=df_filtered[f'{category}_Inflow'],
-                    opacity=0.7
+                    x=inflow_df['Date'],
+                    y=inflow_df[category],
+                    opacity=0.7,
+                    hovertemplate='%{x|%b %Y}<br>' +
+                                f'{category}: $%{{y:.0f}}M<br>' +
+                                '<extra></extra>'
                 ))
         
-        if inflow_data:
-            fig_inflow = go.Figure(data=inflow_data)
-            fig_inflow.update_layout(
-                barmode='stack',
-                title="Total Monthly Inflows",
-                xaxis_title="Date",
-                yaxis_title="Millions USD (Inflows)",
-                height=400,
-                showlegend=True
+        fig_inflows.update_layout(
+            barmode='stack',
+            title="Monthly Inflows by Category",
+            xaxis_title="Date",
+            yaxis_title="Inflows (Millions USD)",
+            height=400,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
             )
-            st.plotly_chart(fig_inflow, use_container_width=True)
+        )
+        
+        st.plotly_chart(fig_inflows, use_container_width=True)
         
         # Inflow statistics
         st.markdown("**Inflow Statistics**")
-        inflow_stats = []
-        for category in categories:
-            if f'{category}_Inflow' in df_filtered.columns:
-                total_in = df_filtered[f'{category}_Inflow'].sum()
-                avg_in = df_filtered[f'{category}_Inflow'].mean()
-                max_in = df_filtered[f'{category}_Inflow'].max()
-                
-                inflow_stats.append({
-                    'Category': category,
-                    'Total Inflow': f"${total_in:,.0f}M",
-                    'Average': f"${avg_in:,.0f}M",
-                    'Peak': f"${max_in:,.0f}M"
-                })
-        
-        if inflow_stats:
-            st.dataframe(pd.DataFrame(inflow_stats), use_container_width=True, hide_index=True)
+        inflow_stats = pd.DataFrame({
+            'Category': categories,
+            'Total Inflow': [f"${df_filtered[f'{cat}_Inflow'].sum():,.0f}M" 
+                           if f'{cat}_Inflow' in df_filtered.columns else "-" 
+                           for cat in categories],
+            'Avg Monthly': [f"${df_filtered[f'{cat}_Inflow'].mean():,.0f}M" 
+                          if f'{cat}_Inflow' in df_filtered.columns else "-" 
+                          for cat in categories],
+            'Max Monthly': [f"${df_filtered[f'{cat}_Inflow'].max():,.0f}M" 
+                          if f'{cat}_Inflow' in df_filtered.columns else "-" 
+                          for cat in categories]
+        })
+        st.dataframe(inflow_stats, use_container_width=True, hide_index=True)
     
     with col2:
-        st.markdown("#### Monthly Outflows by Category")
+        st.markdown("#### Monthly Outflows")
         
-        outflow_data = []
+        # Prepare outflow data
+        outflow_df = pd.DataFrame({'Date': df_filtered['Date']})
         for category in categories:
             if f'{category}_Outflow' in df_filtered.columns:
-                outflow_data.append(go.Bar(
+                outflow_df[category] = df_filtered[f'{category}_Outflow']
+        
+        fig_outflows = go.Figure()
+        
+        for category in categories:
+            if category in outflow_df.columns:
+                fig_outflows.add_trace(go.Bar(
                     name=category,
-                    x=df_filtered['Date'],
-                    y=df_filtered[f'{category}_Outflow'],
-                    opacity=0.7
+                    x=outflow_df['Date'],
+                    y=outflow_df[category],
+                    opacity=0.7,
+                    hovertemplate='%{x|%b %Y}<br>' +
+                                f'{category}: $%{{y:.0f}}M<br>' +
+                                '<extra></extra>'
                 ))
         
-        if outflow_data:
-            fig_outflow = go.Figure(data=outflow_data)
-            fig_outflow.update_layout(
-                barmode='stack',
-                title="Total Monthly Outflows",
-                xaxis_title="Date",
-                yaxis_title="Millions USD (Outflows)",
-                height=400,
-                showlegend=True
+        fig_outflows.update_layout(
+            barmode='stack',
+            title="Monthly Outflows by Category",
+            xaxis_title="Date",
+            yaxis_title="Outflows (Millions USD)",
+            height=400,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
             )
-            st.plotly_chart(fig_outflow, use_container_width=True)
+        )
+        
+        st.plotly_chart(fig_outflows, use_container_width=True)
         
         # Outflow statistics
         st.markdown("**Outflow Statistics**")
-        outflow_stats = []
-        for category in categories:
-            if f'{category}_Outflow' in df_filtered.columns:
-                total_out = df_filtered[f'{category}_Outflow'].sum()
-                avg_out = df_filtered[f'{category}_Outflow'].mean()
-                max_out = df_filtered[f'{category}_Outflow'].max()
-                
-                outflow_stats.append({
-                    'Category': category,
-                    'Total Outflow': f"${total_out:,.0f}M",
-                    'Average': f"${avg_out:,.0f}M",
-                    'Peak': f"${max_out:,.0f}M"
-                })
-        
-        if outflow_stats:
-            st.dataframe(pd.DataFrame(outflow_stats), use_container_width=True, hide_index=True)
+        outflow_stats = pd.DataFrame({
+            'Category': categories,
+            'Total Outflow': [f"${df_filtered[f'{cat}_Outflow'].sum():,.0f}M" 
+                            if f'{cat}_Outflow' in df_filtered.columns else "-" 
+                            for cat in categories],
+            'Avg Monthly': [f"${df_filtered[f'{cat}_Outflow'].mean():,.0f}M" 
+                          if f'{cat}_Outflow' in df_filtered.columns else "-" 
+                          for cat in categories],
+            'Max Monthly': [f"${df_filtered[f'{cat}_Outflow'].max():,.0f}M" 
+                          if f'{cat}_Outflow' in df_filtered.columns else "-" 
+                          for cat in categories]
+        })
+        st.dataframe(outflow_stats, use_container_width=True, hide_index=True)
     
     # Net flow analysis
     st.markdown("---")
     st.markdown("#### Net Flow Analysis")
     
-    net_flow_fig = make_subplots(rows=2, cols=2, 
-                                subplot_titles=['Net Flow by Category', 'Inflow-Outflow Ratio',
-                                               'Cumulative Net Flow', 'Flow Direction Over Time'])
+    net_analysis_fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=['Net Flow Over Time', 'Inflow-Outflow Balance',
+                       'Cumulative Net Flow', 'Flow Direction Indicator'],
+        vertical_spacing=0.15,
+        horizontal_spacing=0.15
+    )
     
-    # Net flow by category
+    # Net flow over time
     for category in categories:
         if category in df_filtered.columns:
-            net_flow_fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=df_filtered[category],
-                          name=category, mode='lines'),
+            net_analysis_fig.add_trace(
+                go.Scatter(
+                    x=df_filtered['Date'],
+                    y=df_filtered[category],
+                    name=category,
+                    mode='lines',
+                    line=dict(width=2)
+                ),
                 row=1, col=1
             )
     
-    # Inflow-Outflow ratio
-    for category in categories:
-        if f'{category}_Inflow' in df_filtered.columns and f'{category}_Outflow' in df_filtered.columns:
-            ratio = df_filtered[f'{category}_Inflow'] / (df_filtered[f'{category}_Outflow'] + 1)
-            net_flow_fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=ratio,
-                          name=f"{category} Ratio", mode='lines'),
-                row=1, col=2
-            )
+    # Inflow-outflow balance
+    if 'Total' in df_filtered.columns:
+        balance = df_filtered['Total_Inflow'] - df_filtered['Total_Outflow']
+        net_analysis_fig.add_trace(
+            go.Bar(
+                x=df_filtered['Date'],
+                y=balance,
+                name='Net Balance',
+                marker_color=['#10B981' if x > 0 else '#EF4444' for x in balance]
+            ),
+            row=1, col=2
+        )
     
     # Cumulative net flow
     for category in categories:
         if f'{category}_Cumulative' in df_filtered.columns:
-            net_flow_fig.add_trace(
-                go.Scatter(x=df_filtered['Date'], y=df_filtered[f'{category}_Cumulative'],
-                          name=f"{category} Cumulative", mode='lines'),
+            net_analysis_fig.add_trace(
+                go.Scatter(
+                    x=df_filtered['Date'],
+                    y=df_filtered[f'{category}_Cumulative'],
+                    name=f'{category} Cumulative',
+                    mode='lines',
+                    line=dict(width=2, dash='dash')
+                ),
                 row=2, col=1
             )
     
-    # Flow direction (positive/negative months)
+    # Flow direction indicator
     direction_data = []
     for category in categories:
         if category in df_filtered.columns:
-            positive_months = (df_filtered[category] > 0).sum()
-            negative_months = (df_filtered[category] < 0).sum()
+            inflow_months = (df_filtered[category] > 0).sum()
+            outflow_months = (df_filtered[category] < 0).sum()
             direction_data.append(go.Bar(
                 name=category,
-                x=['Inflow Months', 'Outflow Months'],
-                y=[positive_months, negative_months]
+                x=['Inflow', 'Outflow'],
+                y=[inflow_months, outflow_months],
+                text=[inflow_months, outflow_months],
+                textposition='auto'
             ))
     
-    for i, trace in enumerate(direction_data):
-        net_flow_fig.add_trace(trace, row=2, col=2)
+    for trace in direction_data:
+        net_analysis_fig.add_trace(trace, row=2, col=2)
     
-    net_flow_fig.update_layout(height=700, showlegend=True)
-    net_flow_fig.update_yaxes(title_text="Millions USD", row=1, col=1)
-    net_flow_fig.update_yaxes(title_text="Ratio", row=1, col=2)
-    net_flow_fig.update_yaxes(title_text="Cumulative USD", row=2, col=1)
-    net_flow_fig.update_yaxes(title_text="Number of Months", row=2, col=2)
-    
-    st.plotly_chart(net_flow_fig, use_container_width=True)
-
-with tab3:
-    # Monthly Changes Analysis
-    st.markdown("### Monthly Percentage Changes & Normalized Analysis")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### Monthly Percentage Changes")
-        
-        change_fig = go.Figure()
-        
-        colors = px.colors.qualitative.Set3
-        for i, category in enumerate(categories):
-            if f'{category}_Monthly_Change' in df_filtered.columns:
-                change_fig.add_trace(go.Scatter(
-                    x=df_filtered['Date'],
-                    y=df_filtered[f'{category}_Monthly_Change'],
-                    name=category,
-                    mode='lines+markers',
-                    line=dict(width=2, color=colors[i % len(colors)]),
-                    marker=dict(size=4),
-                    hovertemplate='%{x|%b %Y}<br>' +
-                                f'{category}: %{{y:.1f}}%'
-                ))
-        
-        change_fig.update_layout(
-            title="Monthly Percentage Changes by Category",
-            xaxis_title="Date",
-            yaxis_title="Monthly % Change",
-            height=400,
-            hovermode='x unified',
-            showlegend=True
+    net_analysis_fig.update_layout(
+        height=700,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
         )
-        
-        # Add zero line
-        change_fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-        
-        st.plotly_chart(change_fig, use_container_width=True)
+    )
     
-    with col2:
-        st.markdown("#### Normalized Monthly Flows (Z-Score)")
-        
-        norm_fig = go.Figure()
-        
-        for i, category in enumerate(categories):
-            if f'{category}_Normalized' in df_filtered.columns:
-                norm_fig.add_trace(go.Scatter(
-                    x=df_filtered['Date'],
-                    y=df_filtered[f'{category}_Normalized'],
-                    name=category,
-                    mode='lines',
-                    line=dict(width=2),
-                    hovertemplate='%{x|%b %Y}<br>' +
-                                f'{category}: %{{y:.2f}}σ'
-                ))
-        
-        norm_fig.update_layout(
-            title="Normalized Monthly Flows (Z-Score)",
-            xaxis_title="Date",
-            yaxis_title="Standard Deviations from Mean",
-            height=400,
-            hovermode='x unified',
-            showlegend=True
-        )
-        
-        # Add zero line
-        norm_fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-        
-        st.plotly_chart(norm_fig, use_container_width=True)
+    net_analysis_fig.update_yaxes(title_text="Net Flow (M USD)", row=1, col=1)
+    net_analysis_fig.update_yaxes(title_text="Balance (M USD)", row=1, col=2)
+    net_analysis_fig.update_yaxes(title_text="Cumulative (M USD)", row=2, col=1)
+    net_analysis_fig.update_yaxes(title_text="Number of Months", row=2, col=2)
     
-    # Rolling statistics
-    st.markdown("---")
-    st.markdown("#### Rolling Statistics Analysis")
-    
-    rolling_cols = st.columns(3)
-    
-    with rolling_cols[0]:
-        window = st.slider("Rolling Window (months)", 3, 24, 12)
-    
-    with rolling_cols[1]:
-        stat_type = st.selectbox("Statistic", ["Mean", "Std Dev", "Max", "Min", "Volatility"])
-    
-    with rolling_cols[2]:
-        category_for_rolling = st.selectbox("Category for Rolling Stats", categories)
-    
-    if category_for_rolling in df_filtered.columns:
-        rolling_stats_fig = make_subplots(rows=2, cols=2,
-                                         subplot_titles=['Rolling Mean', 'Rolling Standard Deviation',
-                                                        'Rolling Max/Min', 'Rolling Volatility'])
-        
-        # Rolling mean
-        rolling_mean = df_filtered[category_for_rolling].rolling(window=window).mean()
-        rolling_stats_fig.add_trace(
-            go.Scatter(x=df_filtered['Date'], y=rolling_mean,
-                      name=f'{window}-Month MA', line=dict(color='blue')),
-            row=1, col=1
-        )
-        
-        # Rolling std dev
-        rolling_std = df_filtered[category_for_rolling].rolling(window=window).std()
-        rolling_stats_fig.add_trace(
-            go.Scatter(x=df_filtered['Date'], y=rolling_std,
-                      name=f'{window}-Month Std Dev', line=dict(color='red')),
-            row=1, col=2
-        )
-        
-        # Rolling max/min
-        rolling_max = df_filtered[category_for_rolling].rolling(window=window).max()
-        rolling_min = df_filtered[category_for_rolling].rolling(window=window).min()
-        rolling_stats_fig.add_trace(
-            go.Scatter(x=df_filtered['Date'], y=rolling_max,
-                      name='Rolling Max', line=dict(color='green')),
-            row=2, col=1
-        )
-        rolling_stats_fig.add_trace(
-            go.Scatter(x=df_filtered['Date'], y=rolling_min,
-                      name='Rolling Min', line=dict(color='orange')),
-            row=2, col=1
-        )
-        
-        # Rolling volatility (std/mean)
-        rolling_vol = rolling_std / rolling_mean.abs()
-        rolling_stats_fig.add_trace(
-            go.Scatter(x=df_filtered['Date'], y=rolling_vol,
-                      name='Rolling Volatility', line=dict(color='purple')),
-            row=2, col=2
-        )
-        
-        rolling_stats_fig.update_layout(height=600, showlegend=True)
-        st.plotly_chart(rolling_stats_fig, use_container_width=True)
+    st.plotly_chart(net_analysis_fig, use_container_width=True)
 
 with tab4:
-    # Advanced Statistics
-    st.markdown("### Advanced Statistical Analysis")
+    # Composition Analysis
+    st.markdown('<div class="section-header">🥧 Fund Composition Analysis</div>', unsafe_allow_html=True)
     
-    # Correlation Analysis
-    if show_correlation and len(categories) > 1:
-        st.markdown("#### Correlation Matrix")
+    # Time period selection for composition
+    time_period = st.selectbox(
+        "Select time period for composition analysis",
+        ["Overall", "Yearly", "Quarterly", "Monthly"],
+        index=0
+    )
+    
+    if time_period == "Overall":
+        # Overall composition
+        st.markdown("### Overall Composition (Entire Period)")
         
-        # Prepare correlation data
-        corr_data = []
-        for category in categories:
-            if category in df_filtered.columns:
-                corr_data.append(df_filtered[category])
+        col1, col2, col3 = st.columns(3)
         
-        if corr_data:
-            corr_df = pd.DataFrame(corr_data).T
-            corr_df.columns = categories
-            correlation_matrix = corr_df.corr()
+        with col1:
+            # Total inflows composition
+            total_inflows = {}
+            for category in categories:
+                if f'{category}_Inflow' in df_filtered.columns:
+                    total_inflows[category] = df_filtered[f'{category}_Inflow'].sum()
             
-            fig_corr = go.Figure(data=go.Heatmap(
-                z=correlation_matrix.values,
-                x=correlation_matrix.columns,
-                y=correlation_matrix.index,
-                text=correlation_matrix.values,
-                texttemplate='%{text:.2f}',
-                colorscale='RdBu',
-                zmid=0,
-                colorbar=dict(title="Correlation")
+            if total_inflows:
+                fig_total_in = go.Figure(data=[go.Pie(
+                    labels=list(total_inflows.keys()),
+                    values=list(total_inflows.values()),
+                    hole=0.3,
+                    marker=dict(colors=px.colors.qualitative.Set3),
+                    textinfo='label+percent',
+                    hovertemplate="%{label}<br>$%{value:,.0f}M<br>%{percent}"
+                )])
+                
+                fig_total_in.update_layout(
+                    title="Total Inflows Composition",
+                    height=400,
+                    showlegend=False
+                )
+                st.plotly_chart(fig_total_in, use_container_width=True)
+        
+        with col2:
+            # Total outflows composition
+            total_outflows = {}
+            for category in categories:
+                if f'{category}_Outflow' in df_filtered.columns:
+                    total_outflows[category] = df_filtered[f'{category}_Outflow'].sum()
+            
+            if total_outflows:
+                fig_total_out = go.Figure(data=[go.Pie(
+                    labels=list(total_outflows.keys()),
+                    values=list(total_outflows.values()),
+                    hole=0.3,
+                    marker=dict(colors=px.colors.qualitative.Pastel),
+                    textinfo='label+percent',
+                    hovertemplate="%{label}<br>$%{value:,.0f}M<br>%{percent}"
+                )])
+                
+                fig_total_out.update_layout(
+                    title="Total Outflows Composition",
+                    height=400,
+                    showlegend=False
+                )
+                st.plotly_chart(fig_total_out, use_container_width=True)
+        
+        with col3:
+            # Net flows composition
+            net_flows = {}
+            for category in categories:
+                if category in df_filtered.columns:
+                    net_flows[category] = df_filtered[category].sum()
+            
+            if net_flows:
+                fig_net = go.Figure(data=[go.Pie(
+                    labels=list(net_flows.keys()),
+                    values=[abs(v) for v in net_flows.values()],
+                    hole=0.3,
+                    marker=dict(colors=px.colors.qualitative.Bold),
+                    textinfo='label+percent',
+                    hovertemplate="%{label}<br>$%{value:,.0f}M<br>%{percent}"
+                )])
+                
+                fig_net.update_layout(
+                    title="Absolute Net Flows Composition",
+                    height=400,
+                    showlegend=False
+                )
+                st.plotly_chart(fig_net, use_container_width=True)
+    
+    elif time_period == "Yearly":
+        # Yearly composition
+        st.markdown("### Yearly Composition Analysis")
+        
+        years = sorted(df_filtered['Year'].unique())
+        selected_year = st.selectbox("Select Year", years, index=len(years)-1)
+        
+        year_data = df_filtered[df_filtered['Year'] == selected_year]
+        
+        if not year_data.empty:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Yearly inflows
+                yearly_inflows = {}
+                for category in categories:
+                    if f'{category}_Inflow' in year_data.columns:
+                        yearly_inflows[category] = year_data[f'{category}_Inflow'].sum()
+                
+                if yearly_inflows:
+                    fig_year_in = go.Figure(data=[go.Pie(
+                        labels=list(yearly_inflows.keys()),
+                        values=list(yearly_inflows.values()),
+                        hole=0.4,
+                        marker=dict(colors=px.colors.qualitative.Set3)
+                    )])
+                    
+                    fig_year_in.update_layout(
+                        title=f"Inflows Composition - {selected_year}",
+                        height=400
+                    )
+                    st.plotly_chart(fig_year_in, use_container_width=True)
+            
+            with col2:
+                # Yearly outflows
+                yearly_outflows = {}
+                for category in categories:
+                    if f'{category}_Outflow' in year_data.columns:
+                        yearly_outflows[category] = year_data[f'{category}_Outflow'].sum()
+                
+                if yearly_outflows:
+                    fig_year_out = go.Figure(data=[go.Pie(
+                        labels=list(yearly_outflows.keys()),
+                        values=list(yearly_outflows.values()),
+                        hole=0.4,
+                        marker=dict(colors=px.colors.qualitative.Pastel)
+                    )])
+                    
+                    fig_year_out.update_layout(
+                        title=f"Outflows Composition - {selected_year}",
+                        height=400
+                    )
+                    st.plotly_chart(fig_year_out, use_container_width=True)
+    
+    # Composition trends over time
+    st.markdown("### Composition Trends Over Time")
+    
+    # Calculate rolling composition
+    window_size = st.slider("Rolling Window Size (months)", 3, 24, 12)
+    
+    composition_trends = pd.DataFrame({'Date': df_filtered['Date']})
+    
+    for category in categories:
+        if category in df_filtered.columns:
+            rolling_sum = df_filtered[category].rolling(window=window_size).sum()
+            total_rolling = df_filtered[categories].rolling(window=window_size).sum().sum(axis=1)
+            composition_trends[f'{category}_%'] = 100 * rolling_sum / total_rolling
+    
+    fig_composition_trends = go.Figure()
+    
+    for category in categories:
+        if f'{category}_%' in composition_trends.columns:
+            fig_composition_trends.add_trace(go.Scatter(
+                x=composition_trends['Date'],
+                y=composition_trends[f'{category}_%'],
+                name=category,
+                mode='lines',
+                stackgroup='one',
+                hovertemplate='%{x|%b %Y}<br>' +
+                            f'{category}: %{{y:.1f}}%<br>' +
+                            '<extra></extra>'
+            ))
+    
+    fig_composition_trends.update_layout(
+        title=f"Rolling {window_size}-Month Composition Trends",
+        xaxis_title="Date",
+        yaxis_title="Percentage of Total Flow",
+        height=500,
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    st.plotly_chart(fig_composition_trends, use_container_width=True)
+
+with tab5:
+    # Performance Metrics
+    st.markdown('<div class="section-header">📉 Performance Metrics & Analytics</div>', unsafe_allow_html=True)
+    
+    # Key performance indicators
+    st.markdown("### Key Performance Indicators")
+    
+    kpi_cols = st.columns(4)
+    
+    with kpi_cols[0]:
+        if 'Total' in df_filtered.columns:
+            sharpe_ratio = df_filtered['Total'].mean() / df_filtered['Total'].std() * np.sqrt(12)
+            st.metric("Sharpe Ratio", f"{sharpe_ratio:.3f}")
+    
+    with kpi_cols[1]:
+        if 'Total' in df_filtered.columns:
+            sortino_ratio = df_filtered['Total'].mean() / df_filtered[df_filtered['Total'] < 0]['Total'].std() * np.sqrt(12)
+            st.metric("Sortino Ratio", f"{sortino_ratio:.3f}")
+    
+    with kpi_cols[2]:
+        if 'Total' in df_filtered.columns:
+            max_drawdown = (df_filtered['Total_Cumulative'].cummax() - df_filtered['Total_Cumulative']).max()
+            st.metric("Max Drawdown", f"${max_drawdown:,.0f}M")
+    
+    with kpi_cols[3]:
+        if 'Total' in df_filtered.columns:
+            win_rate = (df_filtered['Total'] > 0).sum() / len(df_filtered) * 100
+            st.metric("Win Rate", f"{win_rate:.1f}%")
+    
+    # Correlation analysis
+    st.markdown("### Correlation Analysis")
+    
+    # Calculate correlations
+    corr_data = []
+    for category in categories:
+        if category in df_filtered.columns:
+            corr_data.append(df_filtered[category])
+    
+    if corr_data:
+        corr_df = pd.DataFrame(corr_data).T
+        corr_df.columns = categories
+        correlation_matrix = corr_df.corr()
+        
+        fig_corr = go.Figure(data=go.Heatmap(
+            z=correlation_matrix.values,
+            x=correlation_matrix.columns,
+            y=correlation_matrix.index,
+            text=correlation_matrix.values,
+            texttemplate='%{text:.2f}',
+            colorscale='RdBu',
+            zmid=0,
+            colorbar=dict(title="Correlation")
+        ))
+        
+        fig_corr.update_layout(
+            title="Correlation Matrix Between Fund Categories",
+            height=400
+        )
+        
+        st.plotly_chart(fig_corr, use_container_width=True)
+    
+    # Volatility analysis
+    st.markdown("### Volatility Analysis")
+    
+    vol_cols = st.columns(2)
+    
+    with vol_cols[0]:
+        # Rolling volatility
+        if 'Total' in df_filtered.columns:
+            rolling_vol = df_filtered['Total'].rolling(window=12).std()
+            fig_vol = go.Figure()
+            fig_vol.add_trace(go.Scatter(
+                x=df_filtered['Date'],
+                y=rolling_vol,
+                name='12-Month Rolling Volatility',
+                line=dict(color='red', width=2)
             ))
             
-            fig_corr.update_layout(
-                title="Correlation Matrix Between Categories",
-                height=400
+            fig_vol.update_layout(
+                title="12-Month Rolling Volatility",
+                xaxis_title="Date",
+                yaxis_title="Volatility (Std Dev)",
+                height=300
             )
-            
-            st.plotly_chart(fig_corr, use_container_width=True)
-            
-            # Correlation insights
-            st.markdown("**Correlation Insights:**")
-            insights = []
-            for i, cat1 in enumerate(categories):
-                for j, cat2 in enumerate(categories):
-                    if i < j:  # Avoid duplicates and self-correlation
-                        corr_value = correlation_matrix.loc[cat1, cat2]
-                        if abs(corr_value) > 0.7:
-                            strength = "Strong" if abs(corr_value) > 0.8 else "Moderate"
-                            direction = "positive" if corr_value > 0 else "negative"
-                            insights.append(f"**{cat1}** and **{cat2}** have a {strength} {direction} correlation ({corr_value:.2f})")
-            
-            if insights:
-                for insight in insights:
-                    st.markdown(f"- {insight}")
-            else:
-                st.info("No strong correlations found between selected categories.")
+            st.plotly_chart(fig_vol, use_container_width=True)
     
-    # Distribution Analysis
-    st.markdown("---")
-    st.markdown("#### Distribution Analysis")
-    
-    dist_col1, dist_col2 = st.columns(2)
-    
-    with dist_col1:
-        # Histogram of flows
-        hist_fig = go.Figure()
-        
+    with vol_cols[1]:
+        # Volatility by category
+        vol_by_category = {}
         for category in categories:
             if category in df_filtered.columns:
-                hist_fig.add_trace(go.Histogram(
+                vol_by_category[category] = df_filtered[category].std()
+        
+        if vol_by_category:
+            fig_vol_cat = go.Figure(data=[go.Bar(
+                x=list(vol_by_category.keys()),
+                y=list(vol_by_category.values()),
+                marker_color=px.colors.qualitative.Set3
+            )])
+            
+            fig_vol_cat.update_layout(
+                title="Volatility by Category",
+                xaxis_title="Category",
+                yaxis_title="Standard Deviation",
+                height=300
+            )
+            st.plotly_chart(fig_vol_cat, use_container_width=True)
+    
+    # Distribution analysis
+    st.markdown("### Distribution Analysis")
+    
+    dist_fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=['Distribution by Category', 'QQ-Plot (Normality Test)']
+    )
+    
+    # Histograms
+    for category in categories:
+        if category in df_filtered.columns:
+            dist_fig.add_trace(
+                go.Histogram(
                     x=df_filtered[category],
                     name=category,
                     opacity=0.6,
                     nbinsx=30
-                ))
+                ),
+                row=1, col=1
+            )
+    
+    # QQ-Plot for normality
+    if 'Total' in df_filtered.columns:
+        # Calculate theoretical quantiles
+        theoretical_quantiles = np.sort(stats.norm.ppf(np.linspace(0.01, 0.99, len(df_filtered))))
+        sample_quantiles = np.sort(df_filtered['Total'].values)
         
-        hist_fig.update_layout(
-            title="Distribution of Monthly Flows",
-            xaxis_title="Monthly Flow (Millions USD)",
-            yaxis_title="Frequency",
-            barmode='overlay',
-            height=400
+        dist_fig.add_trace(
+            go.Scatter(
+                x=theoretical_quantiles,
+                y=sample_quantiles,
+                mode='markers',
+                name='QQ-Plot',
+                marker=dict(size=6, color='blue')
+            ),
+            row=1, col=2
         )
         
-        st.plotly_chart(hist_fig, use_container_width=True)
+        # Add reference line
+        min_val = min(theoretical_quantiles.min(), sample_quantiles.min())
+        max_val = max(theoretical_quantiles.max(), sample_quantiles.max())
+        dist_fig.add_trace(
+            go.Scatter(
+                x=[min_val, max_val],
+                y=[min_val, max_val],
+                mode='lines',
+                name='Normal Line',
+                line=dict(color='red', dash='dash')
+            ),
+            row=1, col=2
+        )
     
-    with dist_col2:
-        # Box plot
-        box_data = []
-        for category in categories:
-            if category in df_filtered.columns:
-                box_data.append(go.Box(
-                    y=df_filtered[category],
-                    name=category,
-                    boxpoints='outliers'
-                ))
-        
-        if box_data:
-            box_fig = go.Figure(data=box_data)
-            box_fig.update_layout(
-                title="Box Plot of Monthly Flows",
-                yaxis_title="Monthly Flow (Millions USD)",
-                height=400,
-                showlegend=False
-            )
-            st.plotly_chart(box_fig, use_container_width=True)
+    dist_fig.update_layout(
+        height=400,
+        showlegend=True,
+        barmode='overlay'
+    )
     
-    # Time Series Decomposition
-    if analysis_level in ["Advanced", "Expert"]:
-        st.markdown("---")
-        st.markdown("#### Time Series Decomposition")
-        
-        decompose_category = st.selectbox("Select category for decomposition", categories)
-        
-        if decompose_category in df_filtered.columns:
-            from statsmodels.tsa.seasonal import seasonal_decompose
-            
-            # Ensure we have a regular time series
-            ts_data = df_filtered.set_index('Date')[decompose_category]
-            ts_data = ts_data.asfreq('MS').fillna(method='ffill')
-            
-            try:
-                decomposition = seasonal_decompose(ts_data, model='additive', period=12)
-                
-                decomp_fig = make_subplots(rows=4, cols=1,
-                                          subplot_titles=['Original Series', 'Trend',
-                                                         'Seasonality', 'Residuals'])
-                
-                decomp_fig.add_trace(
-                    go.Scatter(x=ts_data.index, y=ts_data.values,
-                              name='Original', line=dict(color='blue')),
-                    row=1, col=1
-                )
-                
-                decomp_fig.add_trace(
-                    go.Scatter(x=decomposition.trend.index, y=decomposition.trend,
-                              name='Trend', line=dict(color='red')),
-                    row=2, col=1
-                )
-                
-                decomp_fig.add_trace(
-                    go.Scatter(x=decomposition.seasonal.index, y=decomposition.seasonal,
-                              name='Seasonal', line=dict(color='green')),
-                    row=3, col=1
-                )
-                
-                decomp_fig.add_trace(
-                    go.Scatter(x=decomposition.resid.index, y=decomposition.resid,
-                              name='Residual', line=dict(color='orange')),
-                    row=4, col=1
-                )
-                
-                decomp_fig.update_layout(height=800, showlegend=False)
-                st.plotly_chart(decomp_fig, use_container_width=True)
-                
-            except Exception as e:
-                st.warning(f"Could not perform time series decomposition: {str(e)}")
+    st.plotly_chart(dist_fig, use_container_width=True)
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 0.9rem;">
-    <p>Investment Company Institute (ICI) Mutual Fund Flows Analysis | Data Source: ICI Statistics</p>
-    <p>All figures in millions of USD | Negative values indicate net outflows</p>
-    <p>Last Updated: Sample Data Generated</p>
+    <p><strong>Investment Company Institute (ICI) Mutual Fund Flows Dashboard</strong></p>
+    <p>Data Source: ICI Statistics | All figures in millions of USD | Negative values indicate net outflows</p>
+    <p>Dashboard Version 2.0 | Last Updated: Sample Data Generated</p>
 </div>
 """, unsafe_allow_html=True)
