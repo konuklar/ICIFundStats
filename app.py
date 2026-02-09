@@ -905,7 +905,7 @@ def create_enhanced_flow_analysis(data_dict, frequency):
                         strength_label = "Moderate"
                         strength_color = "#f1c40f"
                     elif trend_strength > 0.5:
-                                            else:
+                    else:
                         strength_label = "Weak"
                         strength_color = "#27ae60"
                     
