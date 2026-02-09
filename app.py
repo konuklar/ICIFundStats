@@ -1430,33 +1430,112 @@ def create_advanced_analytics(data_dict):
     with analytics_tab1:
         st.markdown("##### Volatility Analysis")
         
+        # Explanation
+        st.info("**Note:** Volatility analysis is based on percentage changes (returns) of fund flows, not absolute levels.")
+        
         # Calculate and display volatility metrics
         volatility_data = []
+        
         for category, data in data_dict.items():
             if 'flows' in data and not data['flows'].empty:
                 flows = data['flows']['Flow']
-                returns = flows.pct_change().dropna()
                 
-                if len(returns) > 0:
-                    # Calculate various volatility metrics
-                    daily_vol = returns.std() * 100
-                    annualized_vol = daily_vol * np.sqrt(252)  # Annualization
-                    max_drawdown = (flows / flows.cummax() - 1).min() * 100
-                    var_95 = np.percentile(returns, 5) * 100
-                    var_99 = np.percentile(returns, 1) * 100
+                # Calculate percentage returns (excluding first NaN)
+                if len(flows) >= 2:
+                    # Method 1: Simple percentage change (preferred for volatility)
+                    returns = flows.pct_change().dropna() * 100  # Convert to percentage
                     
-                    volatility_data.append({
-                        'Category': category,
-                        'Daily Vol (%)': f"{daily_vol:.2f}",
-                        'Annual Vol (%)': f"{annualized_vol:.2f}",
-                        'Max Drawdown (%)': f"{max_drawdown:.2f}",
-                        'VaR 95% (%)': f"{var_95:.2f}",
-                        'VaR 99% (%)': f"{var_99:.2f}",
-                        'Risk Level': 'High' if annualized_vol > 30 else 'Medium' if annualized_vol > 15 else 'Low'
-                    })
+                    # Method 2: Log returns (alternative for normally distributed returns)
+                    # returns = np.log(flows / flows.shift(1)).dropna() * 100
+                    
+                    if len(returns) > 0:
+                        # Calculate various volatility metrics
+                        period_vol = returns.std()  # Period volatility (monthly or weekly)
+                        
+                        # Annualize based on frequency
+                        if len(returns) > 0:
+                            # Estimate periods per year based on index frequency
+                            if isinstance(flows.index, pd.DatetimeIndex):
+                                if pd.infer_freq(flows.index) == 'MS' or pd.infer_freq(flows.index) == 'M':
+                                    periods_per_year = 12
+                                elif pd.infer_freq(flows.index) == 'W' or pd.infer_freq(flows.index) == 'W-FRI':
+                                    periods_per_year = 52
+                                else:
+                                    periods_per_year = 252  # Default to daily
+                            else:
+                                # Default based on data length
+                                if len(flows) > 50:  # Likely weekly or monthly
+                                    if (flows.index[-1] - flows.index[0]).days / len(flows) > 20:
+                                        periods_per_year = 12  # Monthly
+                                    else:
+                                        periods_per_year = 52  # Weekly
+                                else:
+                                    periods_per_year = 12  # Default to monthly
+                            
+                            annualized_vol = period_vol * np.sqrt(periods_per_year)
+                            
+                            # Calculate other metrics using returns
+                            # Cumulative returns for drawdown calculation
+                            cum_returns = (1 + returns/100).cumprod() - 1
+                            max_drawdown = (cum_returns.expanding().max() - cum_returns).max() * 100
+                            
+                            # Calculate Value at Risk (VaR) - parametric method
+                            var_95 = returns.mean() - 1.645 * returns.std()
+                            var_99 = returns.mean() - 2.326 * returns.std()
+                            
+                            # Calculate Expected Shortfall (ES) - conditional VaR
+                            es_95 = returns[returns <= var_95].mean() if len(returns[returns <= var_95]) > 0 else var_95
+                            es_99 = returns[returns <= var_99].mean() if len(returns[returns <= var_99]) > 0 else var_99
+                            
+                            # Calculate Sortino Ratio (only downside deviation)
+                            target_return = 0  # Zero threshold
+                            downside_returns = returns[returns < target_return]
+                            downside_deviation = downside_returns.std() if len(downside_returns) > 0 else 0
+                            sortino_ratio = (returns.mean() - target_return) / downside_deviation if downside_deviation > 0 else 0
+                            
+                            # Determine risk level based on annualized volatility
+                            if annualized_vol > 40:
+                                risk_level = 'Very High'
+                                risk_color = '#8b0000'
+                            elif annualized_vol > 25:
+                                risk_level = 'High'
+                                risk_color = '#e74c3c'
+                            elif annualized_vol > 15:
+                                risk_level = 'Medium'
+                                risk_color = '#f39c12'
+                            elif annualized_vol > 5:
+                                risk_level = 'Low'
+                                risk_color = '#27ae60'
+                            else:
+                                risk_level = 'Very Low'
+                                risk_color = '#2ecc71'
+                            
+                            volatility_data.append({
+                                'Category': category,
+                                'Period Vol (%)': f"{period_vol:.2f}",
+                                'Annual Vol (%)': f"{annualized_vol:.2f}",
+                                'Max Drawdown (%)': f"{max_drawdown:.2f}",
+                                'VaR 95% (%)': f"{var_95:.2f}",
+                                'VaR 99% (%)': f"{var_99:.2f}",
+                                'ES 95% (%)': f"{es_95:.2f}" if not pd.isna(es_95) else "N/A",
+                                'ES 99% (%)': f"{es_99:.2f}" if not pd.isna(es_99) else "N/A",
+                                'Sortino Ratio': f"{sortino_ratio:.2f}",
+                                'Risk Level': risk_level,
+                                'Risk Color': risk_color
+                            })
         
         if volatility_data:
-            volatility_df = pd.DataFrame(volatility_data)
+            # Display volatility statistics table
+            st.markdown("##### Volatility Statistics")
+            display_cols = ['Category', 'Period Vol (%)', 'Annual Vol (%)', 'Max Drawdown (%)', 
+                          'VaR 95% (%)', 'VaR 99% (%)', 'Sortino Ratio', 'Risk Level']
+            
+            display_data = []
+            for item in volatility_data:
+                display_item = {col: item[col] for col in display_cols}
+                display_data.append(display_item)
+            
+            volatility_df = pd.DataFrame(display_data)
             st.dataframe(volatility_df, use_container_width=True)
             
             # Volatility comparison chart
@@ -1465,41 +1544,184 @@ def create_advanced_analytics(data_dict):
             fig_vol = go.Figure()
             categories = [d['Category'] for d in volatility_data]
             annual_vols = [float(d['Annual Vol (%)']) for d in volatility_data]
-            
-            # Color by risk level
-            colors = []
-            for vol in annual_vols:
-                if vol > 30:
-                    colors.append('#e74c3c')
-                elif vol > 15:
-                    colors.append('#f39c12')
-                else:
-                    colors.append('#27ae60')
+            risk_colors = [d['Risk Color'] for d in volatility_data]
             
             fig_vol.add_trace(go.Bar(
                 x=categories,
                 y=annual_vols,
-                marker_color=colors,
+                marker_color=risk_colors,
                 text=[f"{v:.1f}%" for v in annual_vols],
                 textposition='auto',
-                hovertemplate='%{x}<br>Annual Volatility: %{y:.1f}%<extra></extra>'
+                hovertemplate='%{x}<br>Annual Volatility: %{y:.1f}%<br>Risk Level: %{customdata}',
+                customdata=[d['Risk Level'] for d in volatility_data]
             ))
             
             fig_vol.update_layout(
-                title='Annualized Volatility by Category',
+                title='Annualized Volatility by Category (Based on Returns)',
                 xaxis_title='Category',
                 yaxis_title='Annual Volatility (%)',
-                height=400,
+                height=500,
                 plot_bgcolor='white',
-                paper_bgcolor='white'
+                paper_bgcolor='white',
+                showlegend=False
             )
             
-            # Add risk level bands
-            fig_vol.add_hrect(y0=0, y1=15, line_width=0, fillcolor="green", opacity=0.1)
-            fig_vol.add_hrect(y0=15, y1=30, line_width=0, fillcolor="yellow", opacity=0.1)
-            fig_vol.add_hrect(y0=30, y1=max(annual_vols)*1.1, line_width=0, fillcolor="red", opacity=0.1)
+            # Add risk level bands with appropriate thresholds
+            fig_vol.add_hrect(y0=0, y1=5, line_width=0, fillcolor="#2ecc71", opacity=0.1, 
+                            annotation_text="Very Low Risk", annotation_position="top left")
+            fig_vol.add_hrect(y0=5, y1=15, line_width=0, fillcolor="#27ae60", opacity=0.1, 
+                            annotation_text="Low Risk", annotation_position="top left")
+            fig_vol.add_hrect(y0=15, y1=25, line_width=0, fillcolor="#f39c12", opacity=0.1, 
+                            annotation_text="Medium Risk", annotation_position="top left")
+            fig_vol.add_hrect(y0=25, y1=40, line_width=0, fillcolor="#e74c3c", opacity=0.1, 
+                            annotation_text="High Risk", annotation_position="top left")
+            fig_vol.add_hrect(y0=40, y1=max(annual_vols)*1.2, line_width=0, fillcolor="#8b0000", opacity=0.1, 
+                            annotation_text="Very High Risk", annotation_position="top left")
             
             st.plotly_chart(fig_vol, use_container_width=True)
+            
+            # Rolling volatility analysis
+            st.markdown("##### Rolling Volatility Analysis")
+            
+            # Let user select a category for detailed rolling volatility
+            if volatility_data:
+                selected_category = st.selectbox(
+                    "Select Category for Rolling Volatility Analysis",
+                    [d['Category'] for d in volatility_data],
+                    key="rolling_vol_category"
+                )
+                
+                if selected_category:
+                    data = data_dict[selected_category]
+                    if 'flows' in data and not data['flows'].empty:
+                        flows = data['flows']['Flow']
+                        
+                        if len(flows) >= 20:  # Need enough data for rolling window
+                            # Calculate returns
+                            returns = flows.pct_change().dropna() * 100
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                rolling_window = st.slider(
+                                    "Rolling Window Size",
+                                    5, min(60, len(returns)),
+                                    20,
+                                    key="rolling_vol_window"
+                                )
+                            
+                            with col2:
+                                annualize = st.checkbox("Annualize Rolling Volatility", value=True, 
+                                                       key="annualize_vol")
+                            
+                            # Calculate rolling volatility
+                            rolling_vol = returns.rolling(window=rolling_window).std()
+                            
+                            if annualize:
+                                # Estimate periods per year
+                                if isinstance(flows.index, pd.DatetimeIndex):
+                                    if pd.infer_freq(flows.index) == 'MS' or pd.infer_freq(flows.index) == 'M':
+                                        periods_per_year = 12
+                                    elif pd.infer_freq(flows.index) == 'W' or pd.infer_freq(flows.index) == 'W-FRI':
+                                        periods_per_year = 52
+                                    else:
+                                        periods_per_year = 252
+                                else:
+                                    periods_per_year = 12  # Default to monthly
+                                
+                                rolling_vol = rolling_vol * np.sqrt(periods_per_year)
+                                y_title = f"{rolling_window}-Period Rolling Annual Volatility (%)"
+                            else:
+                                y_title = f"{rolling_window}-Period Rolling Volatility (%)"
+                            
+                            # Create rolling volatility chart
+                            fig_rolling_vol = go.Figure()
+                            
+                            fig_rolling_vol.add_trace(go.Scatter(
+                                x=rolling_vol.index,
+                                y=rolling_vol,
+                                mode='lines',
+                                name='Rolling Volatility',
+                                line=dict(width=2, color='#3498db'),
+                                fill='tozeroy',
+                                fillcolor='rgba(52, 152, 219, 0.2)',
+                                hovertemplate='%{x|%b %Y}<br>Volatility: %{y:.2f}%<extra></extra>'
+                            ))
+                            
+                            # Add average volatility line
+                            avg_vol = rolling_vol.mean()
+                            fig_rolling_vol.add_hline(
+                                y=avg_vol,
+                                line_dash="dash",
+                                line_color="#e74c3c",
+                                annotation_text=f"Average: {avg_vol:.2f}%",
+                                annotation_position="top right"
+                            )
+                            
+                            fig_rolling_vol.update_layout(
+                                title=f'{selected_category} - {y_title}',
+                                xaxis_title='Date',
+                                yaxis_title=y_title,
+                                height=400,
+                                hovermode='x unified',
+                                plot_bgcolor='white',
+                                paper_bgcolor='white'
+                            )
+                            
+                            st.plotly_chart(fig_rolling_vol, use_container_width=True)
+                            
+                            # Volatility clustering analysis
+                            st.markdown("##### Volatility Clustering Analysis")
+                            
+                            # Calculate volatility clustering (autocorrelation of squared returns)
+                            squared_returns = returns ** 2
+                            
+                            if len(squared_returns) >= 20:
+                                # Calculate autocorrelation
+                                max_lag = min(20, len(squared_returns) // 2)
+                                autocorr = [squared_returns.autocorr(lag=i) for i in range(1, max_lag + 1)]
+                                
+                                fig_autocorr = go.Figure()
+                                
+                                fig_autocorr.add_trace(go.Bar(
+                                    x=list(range(1, max_lag + 1)),
+                                    y=autocorr,
+                                    marker_color='#9b59b6',
+                                    hovertemplate='Lag: %{x}<br>Autocorrelation: %{y:.3f}<extra></extra>'
+                                ))
+                                
+                                # Add significance bands (95% confidence)
+                                significance = 1.96 / np.sqrt(len(squared_returns))
+                                fig_autocorr.add_hline(y=significance, line_dash="dash", line_color="#e74c3c", 
+                                                      annotation_text="95% Upper Band", annotation_position="top right")
+                                fig_autocorr.add_hline(y=-significance, line_dash="dash", line_color="#e74c3c", 
+                                                      annotation_text="95% Lower Band", annotation_position="bottom right")
+                                fig_autocorr.add_hline(y=0, line_dash="solid", line_color="#666666", opacity=0.5)
+                                
+                                fig_autocorr.update_layout(
+                                    title=f'{selected_category} - Autocorrelation of Squared Returns (Volatility Clustering)',
+                                    xaxis_title='Lag',
+                                    yaxis_title='Autocorrelation',
+                                    height=400,
+                                    plot_bgcolor='white',
+                                    paper_bgcolor='white'
+                                )
+                                
+                                st.plotly_chart(fig_autocorr, use_container_width=True)
+                                
+                                # Interpretation of volatility clustering
+                                significant_lags = sum(1 for ac in autocorr if abs(ac) > significance)
+                                if significant_lags > 0:
+                                    st.success(f"**Volatility Clustering Detected:** {significant_lags} out of {max_lag} lags show significant autocorrelation. "
+                                              "This indicates volatility tends to cluster over time (periods of high volatility followed by high volatility, "
+                                              "and periods of low volatility followed by low volatility).")
+                                else:
+                                    st.info("No significant volatility clustering detected. Volatility appears to be independently distributed over time.")
+                        else:
+                            st.warning("Need at least 20 periods of data for rolling volatility analysis")
+                    else:
+                        st.warning("No flow data available for selected category")
+        else:
+            st.info("Not enough data for volatility analysis")
     
     with analytics_tab2:
         st.markdown("##### Seasonality Analysis")
