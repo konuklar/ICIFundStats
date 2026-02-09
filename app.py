@@ -21,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Professional, clean CSS with date indicators
+# Professional, clean CSS with enhanced styling
 st.markdown("""
 <style>
     .main-header {
@@ -101,28 +101,68 @@ st.markdown("""
         background-color: #f5f5f5;
         color: #666666;
     }
-    .period-comparison {
-        background: #f8f9fa;
-        border-radius: 6px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        border-left: 3px solid #2c3e50;
-    }
-    .stat-box {
-        background: #ffffff;
-        border-radius: 6px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        border: 1px solid #f0f0f0;
-    }
-    .data-table-container {
+    .chart-container {
         background: #ffffff;
         border-radius: 8px;
         padding: 1.5rem;
         margin: 1rem 0;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         border: 1px solid #f0f0f0;
+    }
+    .flow-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin: 0 4px;
+    }
+    .flow-in {
+        background-color: rgba(39, 174, 96, 0.1);
+        color: #27ae60;
+        border: 1px solid rgba(39, 174, 96, 0.3);
+    }
+    .flow-out {
+        background-color: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+        border: 1px solid rgba(231, 76, 60, 0.3);
+    }
+    .stat-highlight {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+    }
+    .band-indicator {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin: 2px;
+    }
+    .upper-band {
+        background-color: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+        border: 1px solid rgba(231, 76, 60, 0.3);
+    }
+    .middle-band {
+        background-color: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+        border: 1px solid rgba(52, 152, 219, 0.3);
+    }
+    .lower-band {
+        background-color: rgba(39, 174, 96, 0.1);
+        color: #27ae60;
+        border: 1px solid rgba(39, 174, 96, 0.3);
+    }
+    .analysis-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 4px solid #2c3e50;
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.5rem;
@@ -145,13 +185,6 @@ st.markdown("""
         color: white !important;
         border: 1px solid #2c3e50 !important;
     }
-    .decomposition-plot {
-        background: #ffffff;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-        border: 1px solid #e0e0e0;
-    }
     .footer {
         text-align: center;
         padding: 2rem;
@@ -160,28 +193,12 @@ st.markdown("""
         margin-top: 3rem;
         border-top: 1px solid #e0e0e0;
     }
-    .z-score-high {
-        color: #e74c3c;
-        font-weight: 600;
-    }
-    .z-score-medium {
-        color: #f39c12;
-        font-weight: 600;
-    }
-    .z-score-low {
-        color: #27ae60;
-        font-weight: 600;
-    }
-    .z-score-neutral {
-        color: #666666;
-        font-weight: 500;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # Professional header
 st.markdown('<h1 class="main-header">Institutional Fund Flow Analytics</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Professional Analysis of Mutual Fund & ETF Flows | Federal Reserve Economic Data (FRED)</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Professional Analysis of Mutual Fund & ETF Flows | Advanced Flow Dynamics</p>', unsafe_allow_html=True)
 
 # Working FRED Series IDs
 FRED_SERIES = {
@@ -306,136 +323,8 @@ def load_fund_data(selected_categories, start_date, frequency):
     
     return data_dict
 
-def create_executive_summary(data_dict, frequency):
-    """Create executive summary with latest date"""
-    latest_date = get_latest_date_info(data_dict)
-    
-    st.markdown(f"""
-    <div class="section-header">
-        <span>Executive Summary</span>
-        <span class="date-indicator">Latest Data: {latest_date}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if not data_dict:
-        st.warning("No data available")
-        return
-    
-    # Create metrics row
-    cols = st.columns(min(4, len(data_dict)))
-    
-    for idx, (category, data) in enumerate(list(data_dict.items())[:4]):
-        with cols[idx % len(cols)]:
-            if 'flows' in data and not data['flows'].empty and len(data['flows']) > 0:
-                latest_flow = data['flows'].iloc[-1, 0]
-                avg_flow = data['flows'].mean().iloc[0]
-                
-                # Calculate trend vs period average
-                periods = data.get('periods_for_trend', 12)
-                if len(data['flows']) >= periods:
-                    period_avg = data['flows'].iloc[-periods:].mean().iloc[0]
-                    trend = "up" if latest_flow > period_avg else "down" if latest_flow < period_avg else "neutral"
-                else:
-                    trend = "neutral"
-                    period_avg = avg_flow
-                
-                trend_class = f"trend-{trend}"
-                trend_symbol = "↗" if trend == "up" else "↘" if trend == "down" else "→"
-                
-                st.markdown(f"""
-                <div class='metric-card'>
-                    <div class='metric-label'>{category}</div>
-                    <div class='metric-value'>${abs(latest_flow):,.0f}M</div>
-                    <div>
-                        <span style='color: {'#27ae60' if latest_flow > 0 else '#e74c3c'};'>
-                            {'+' if latest_flow > 0 else ''}{latest_flow:,.0f}M
-                        </span>
-                        <span class='trend-indicator {trend_class}'>
-                            {trend_symbol} vs {periods} {frequency}
-                        </span>
-                    </div>
-                    <div style='font-size: 0.8rem; color: #666666; margin-top: 8px;'>
-                        {periods}-period avg: ${period_avg:,.0f}M
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-def create_professional_growth_charts(data_dict):
-    """Create professional growth analysis with latest date"""
-    latest_date = get_latest_date_info(data_dict)
-    
-    st.markdown(f"""
-    <div class="section-header">
-        <span>Growth Dynamics Analysis</span>
-        <span class="date-indicator">Latest Data: {latest_date}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if not data_dict:
-        st.warning("No data available")
-        return
-    
-    # Analysis controls
-    col1, col2 = st.columns(2)
-    with col1:
-        analysis_type = st.selectbox(
-            "Analysis Type",
-            ["Cumulative Growth Index", "Rolling Returns", "Risk-Adjusted Performance"],
-            key="growth_type"
-        )
-    
-    with col2:
-        if analysis_type == "Rolling Returns":
-            window = st.slider("Rolling Window Size", 1, 24, 12, key="growth_window")
-        else:
-            window = 12
-    
-    # Prepare growth data
-    fig = go.Figure()
-    
-    for idx, (category, data) in enumerate(data_dict.items()):
-        if 'assets' in data and not data['assets'].empty:
-            assets = data['assets']['Value']
-            color = data.get('color', PROFESSIONAL_COLORS[idx % len(PROFESSIONAL_COLORS)])
-            
-            if analysis_type == "Cumulative Growth Index":
-                y_data = 100 * assets / assets.iloc[0]
-                y_title = "Growth Index (Base = 100)"
-                
-            elif analysis_type == "Rolling Returns":
-                returns = assets.pct_change()
-                y_data = returns.rolling(window=window).mean() * 100
-                y_title = f"{window}-Period Rolling Return (%)"
-                
-            elif analysis_type == "Risk-Adjusted Performance":
-                returns = assets.pct_change()
-                rolling_sharpe = returns.rolling(window=window).mean() / returns.rolling(window=window).std() * np.sqrt(12 if window >= 12 else 4)
-                y_data = rolling_sharpe
-                y_title = f"{window}-Period Rolling Sharpe Ratio"
-            
-            fig.add_trace(go.Scatter(
-                x=y_data.index,
-                y=y_data,
-                name=category,
-                mode='lines',
-                line=dict(width=2, color=color),
-                hovertemplate='%{x|%b %Y}<br>' + f'{category}: %{{y:.2f}}<extra></extra>'
-            ))
-    
-    fig.update_layout(
-        title=f"{analysis_type}",
-        xaxis_title="Date",
-        yaxis_title=y_title,
-        height=500,
-        hovermode='x unified',
-        plot_bgcolor='white',
-        paper_bgcolor='white'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-def create_flow_analysis(data_dict, frequency):
-    """Create flow analysis with latest date"""
+def create_enhanced_flow_analysis(data_dict, frequency):
+    """Create enhanced institutional flow analysis with trend and Bollinger bands"""
     latest_date = get_latest_date_info(data_dict)
     
     st.markdown(f"""
@@ -449,665 +338,844 @@ def create_flow_analysis(data_dict, frequency):
         st.warning("No data available")
         return
     
-    # Inflow/Outflow analysis
-    col1, col2 = st.columns(2)
+    # Create overview metrics
+    st.markdown("### Flow Overview Dashboard")
     
-    with col1:
-        st.markdown("##### Latest Inflows")
-        inflow_data = []
-        categories_list = []
-        
-        for category, data in data_dict.items():
-            if 'flows' in data and not data['flows'].empty:
-                latest_flow = data['flows'].iloc[-1, 0]
-                if latest_flow > 0:
-                    inflow_data.append(latest_flow)
-                    categories_list.append(category)
-        
-        if inflow_data:
-            fig_in = go.Figure()
-            fig_in.add_trace(go.Bar(
-                x=categories_list,
-                y=inflow_data,
-                marker_color='#27ae60',
-                hovertemplate='%{x}<br>Inflow: $%{y:,.0f}M<extra></extra>'
-            ))
-            fig_in.update_layout(height=300, showlegend=False)
-            st.plotly_chart(fig_in, use_container_width=True)
-        else:
-            st.info("No inflows in latest period")
+    # Calculate summary metrics
+    total_inflows = 0
+    total_outflows = 0
+    inflow_categories = []
+    outflow_categories = []
     
-    with col2:
-        st.markdown("##### Latest Outflows")
-        outflow_data = []
-        categories_list = []
-        
-        for category, data in data_dict.items():
-            if 'flows' in data and not data['flows'].empty:
-                latest_flow = data['flows'].iloc[-1, 0]
-                if latest_flow < 0:
-                    outflow_data.append(abs(latest_flow))
-                    categories_list.append(category)
-        
-        if outflow_data:
-            fig_out = go.Figure()
-            fig_out.add_trace(go.Bar(
-                x=categories_list,
-                y=outflow_data,
-                marker_color='#e74c3c',
-                hovertemplate='%{x}<br>Outflow: $%{y:,.0f}M<extra></extra>'
-            ))
-            fig_out.update_layout(height=300, showlegend=False)
-            st.plotly_chart(fig_out, use_container_width=True)
-        else:
-            st.info("No outflows in latest period")
-    
-    # Flow trend analysis
-    st.markdown("##### Flow Trend vs Period Average")
-    
-    trend_data = []
     for category, data in data_dict.items():
         if 'flows' in data and not data['flows'].empty:
             latest_flow = data['flows'].iloc[-1, 0]
-            periods = data.get('periods_for_trend', 12)
-            
-            if len(data['flows']) >= periods:
-                period_avg = data['flows'].iloc[-periods:].mean().iloc[0]
-                vs_period = ((latest_flow - period_avg) / abs(period_avg) * 100) if period_avg != 0 else 0
-                
-                trend_data.append({
-                    'Category': category,
-                    f'Latest {frequency}': f"${latest_flow:,.0f}M",
-                    f'{periods}-Period Avg': f"${period_avg:,.0f}M",
-                    'vs Period': f"{vs_period:+.1f}%",
-                    'Status': 'Above' if latest_flow > period_avg else 'Below'
-                })
-    
-    if trend_data:
-        trend_df = pd.DataFrame(trend_data)
-        st.dataframe(trend_df, use_container_width=True, height=200)
-
-def create_statistical_analysis(data_dict, frequency):
-    """Create comprehensive statistical analysis with trend analysis"""
-    latest_date = get_latest_date_info(data_dict)
-    
-    st.markdown(f"""
-    <div class="section-header">
-        <span>Statistical Analysis</span>
-        <span class="date-indicator">Latest Data: {latest_date}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if not data_dict:
-        st.warning("No data available")
-        return
-    
-    # Create tabs for different analyses
-    tab1, tab2, tab3 = st.tabs(["Descriptive Statistics", "Trend Analysis", "Risk Metrics"])
-    
-    with tab1:
-        st.markdown("##### Descriptive Statistics")
-        
-        stats_data = []
-        for category, data in data_dict.items():
-            if 'flows' in data and not data['flows'].empty:
-                flows = data['flows']['Flow'].dropna()
-                
-                if len(flows) > 1:
-                    stats_data.append({
-                        'Category': category,
-                        'Observations': len(flows),
-                        'Mean (M$)': f"{flows.mean():,.1f}",
-                        'Median (M$)': f"{flows.median():,.1f}",
-                        'Std Dev (M$)': f"{flows.std():,.1f}",
-                        'Skewness': f"{flows.skew():.3f}",
-                        'Kurtosis': f"{flows.kurtosis():.3f}",
-                        'Latest Date': data['flows'].index[-1].strftime('%Y-%m')
-                    })
-        
-        if stats_data:
-            stats_df = pd.DataFrame(stats_data)
-            st.dataframe(stats_df, use_container_width=True, height=400)
-    
-    with tab2:
-        st.markdown("##### Trend Analysis - Latest vs Historical Periods")
-        
-        # User selects period for comparison
-        col1, col2 = st.columns(2)
-        with col1:
-            comparison_period = st.selectbox(
-                "Comparison Period",
-                ["12 months / 24 weeks", "6 months / 12 weeks", "3 months / 6 weeks", "Custom"],
-                key="comp_period"
-            )
-        
-        with col2:
-            if comparison_period == "Custom":
-                custom_period = st.number_input("Custom Period", min_value=1, max_value=60, value=12)
+            if latest_flow > 0:
+                total_inflows += latest_flow
+                inflow_categories.append(category)
             else:
-                custom_period = None
+                total_outflows += abs(latest_flow)
+                outflow_categories.append(category)
+    
+    # Display flow overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Total Inflows</div>
+            <div class='metric-value'>${total_inflows:,.0f}M</div>
+            <div class='flow-indicator flow-in'>{len(inflow_categories)} Categories</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Total Outflows</div>
+            <div class='metric-value'>${total_outflows:,.0f}M</div>
+            <div class='flow-indicator flow-out'>{len(outflow_categories)} Categories</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        net_flow = total_inflows - total_outflows
+        net_color = "#27ae60" if net_flow > 0 else "#e74c3c"
+        net_icon = "↗️" if net_flow > 0 else "↘️"
         
-        # Determine periods based on frequency
-        if frequency == 'monthly':
-            period_map = {
-                "12 months / 24 weeks": 12,
-                "6 months / 12 weeks": 6,
-                "3 months / 6 weeks": 3
-            }
-        else:
-            period_map = {
-                "12 months / 24 weeks": 24,
-                "6 months / 12 weeks": 12,
-                "3 months / 6 weeks": 6
-            }
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Net Flow</div>
+            <div class='metric-value' style='color: {net_color}'>{net_icon} ${abs(net_flow):,.0f}M</div>
+            <div style='font-size: 0.85rem; color: #666666;'>
+                {'Positive' if net_flow > 0 else 'Negative'} Net Flow
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        flow_ratio = total_inflows / total_outflows if total_outflows > 0 else float('inf')
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Inflow/Outflow Ratio</div>
+            <div class='metric-value'>{flow_ratio:.2f}:1</div>
+            <div style='font-size: 0.85rem; color: #666666;'>
+                {'Inflow Dominant' if flow_ratio > 1 else 'Outflow Dominant'}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Advanced Flow Analysis Tabs
+    st.markdown("### Advanced Flow Analysis")
+    
+    flow_tab1, flow_tab2, flow_tab3, flow_tab4 = st.tabs([
+        "📊 Inflow Analysis", 
+        "📉 Outflow Analysis",
+        "📈 Trend Analysis",
+        "📊 Bollinger Bands"
+    ])
+    
+    with flow_tab1:
+        st.markdown("##### Advanced Inflow Analysis")
         
-        periods = custom_period if custom_period else period_map.get(comparison_period, 12)
-        
-        # Perform trend analysis
-        trend_analysis_data = []
-        
-        for category, data in data_dict.items():
-            if 'flows' in data and not data['flows'].empty and len(data['flows']) >= periods:
-                flows = data['flows']['Flow']
-                latest_flow = flows.iloc[-1]
-                period_avg = flows.iloc[-periods:].mean()
-                period_std = flows.iloc[-periods:].std()
-                
-                # Calculate z-score
-                z_score = (latest_flow - period_avg) / period_std if period_std != 0 else 0
-                
-                # Determine significance based on z-score
-                if abs(z_score) > 2:
-                    significance = "🔴 Highly Significant"
-                    sig_color = "z-score-high"
-                elif abs(z_score) > 1.5:
-                    significance = "🟠 Very Significant"
-                    sig_color = "z-score-high"
-                elif abs(z_score) > 1:
-                    significance = "🟡 Significant"
-                    sig_color = "z-score-medium"
-                elif abs(z_score) > 0.5:
-                    significance = "🟢 Moderately Significant"
-                    sig_color = "z-score-medium"
-                else:
-                    significance = "⚪ Normal"
-                    sig_color = "z-score-neutral"
-                
-                # Trend direction with emojis
-                if latest_flow > period_avg * 1.1:  # 10% above average
-                    direction = "📈 Well Above Average"
-                elif latest_flow > period_avg:
-                    direction = "↗️ Above Average"
-                elif latest_flow < period_avg * 0.9:  # 10% below average
-                    direction = "📉 Well Below Average"
-                elif latest_flow < period_avg:
-                    direction = "↘️ Below Average"
-                else:
-                    direction = "➡️ At Average"
-                
-                # Format values for display
-                latest_display = f"${latest_flow:,.0f}M"
-                avg_display = f"${period_avg:,.0f}M"
-                diff_pct = ((latest_flow / period_avg - 1) * 100) if period_avg != 0 else 0
-                diff_display = f"{diff_pct:+.1f}%"
-                
-                trend_analysis_data.append({
-                    'Category': category,
-                    'Latest': latest_display,
-                    f'{periods}-Period Avg': avg_display,
-                    'Difference %': diff_display,
-                    'Z-Score': z_score,
-                    'Direction': direction,
-                    'Significance': significance,
-                    '_z_score': abs(z_score)  # For sorting
-                })
-        
-        if trend_analysis_data:
-            # Create DataFrame and sort by absolute z-score
-            trend_df = pd.DataFrame(trend_analysis_data)
-            trend_df = trend_df.sort_values('_z_score', ascending=False)
-            trend_df = trend_df.drop(columns=['_z_score'])
-            
-            st.markdown(f"**Comparison: Latest vs Last {periods} {frequency}**")
-            
-            # Display the table
-            column_config = {
-                'Category': st.column_config.TextColumn("Category", width="medium"),
-                'Latest': st.column_config.TextColumn(f"Latest {frequency}", width="small"),
-                f'{periods}-Period Avg': st.column_config.TextColumn(f"{periods}-Period Avg", width="small"),
-                'Difference %': st.column_config.TextColumn("Difference %", width="small"),
-                'Z-Score': st.column_config.NumberColumn("Z-Score", format="%.2f", width="small"),
-                'Direction': st.column_config.TextColumn("Direction", width="medium"),
-                'Significance': st.column_config.TextColumn("Significance", width="medium")
-            }
-            
-            st.dataframe(
-                trend_df,
-                column_config=column_config,
-                use_container_width=True,
-                height=400,
-                hide_index=True
+        if inflow_categories:
+            # Create multi-panel inflow analysis
+            fig_inflows = make_subplots(
+                rows=2, cols=2,
+                subplot_titles=[
+                    'Latest Inflows by Category',
+                    'Inflow Trend vs Historical Average',
+                    'Inflow Contribution (%)',
+                    'Inflow Volatility Analysis'
+                ],
+                vertical_spacing=0.12,
+                horizontal_spacing=0.12,
+                specs=[[{'type': 'bar'}, {'type': 'scatter'}],
+                       [{'type': 'pie'}, {'type': 'scatter'}]]
             )
             
-            # Visual summary chart
-            st.markdown("##### Visual Trend Summary")
+            # 1. Latest Inflows Bar Chart
+            latest_inflows = []
+            for category in inflow_categories:
+                latest_flow = data_dict[category]['flows'].iloc[-1, 0]
+                latest_inflows.append(latest_flow)
             
-            # Prepare data for chart
-            categories = [row['Category'] for row in trend_analysis_data]
-            z_scores = [row['Z-Score'] for row in trend_analysis_data]
+            # Color by magnitude
+            inflow_colors = ['#2ecc71' if x > np.median(latest_inflows) else '#27ae60' for x in latest_inflows]
             
-            # Create color scale based on z-score
-            colors = []
-            for z in z_scores:
-                if z > 2:
-                    colors.append('#e74c3c')  # Red for highly positive
-                elif z > 1:
-                    colors.append('#f39c12')  # Orange for positive
-                elif z > 0:
-                    colors.append('#2ecc71')  # Light green for slightly positive
-                elif z < -2:
-                    colors.append('#8e44ad')  # Purple for highly negative
-                elif z < -1:
-                    colors.append('#3498db')  # Blue for negative
-                else:
-                    colors.append('#95a5a6')  # Gray for neutral
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=categories,
-                y=z_scores,
-                marker_color=colors,
-                text=[f"{z:.2f}σ" for z in z_scores],
-                textposition='auto',
-                hovertemplate='%{x}<br>Z-Score: %{y:.2f}<extra></extra>'
-            ))
-            
-            # Add reference lines
-            fig.add_hline(y=2, line_dash="dash", line_color="#e74c3c", 
-                         annotation_text="+2σ", annotation_position="right")
-            fig.add_hline(y=1, line_dash="dash", line_color="#f39c12", 
-                         annotation_text="+1σ", annotation_position="right")
-            fig.add_hline(y=0, line_dash="solid", line_color="#666666", line_width=1)
-            fig.add_hline(y=-1, line_dash="dash", line_color="#3498db", 
-                         annotation_text="-1σ", annotation_position="right")
-            fig.add_hline(y=-2, line_dash="dash", line_color="#8e44ad", 
-                         annotation_text="-2σ", annotation_position="right")
-            
-            fig.update_layout(
-                title=f"Standardized Deviations from {periods}-Period Average",
-                xaxis_title="Category",
-                yaxis_title="Z-Score (Standard Deviations)",
-                height=400,
-                showlegend=False,
-                xaxis_tickangle=-45
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Summary statistics
-            st.markdown("##### Trend Analysis Summary")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            # Count different categories
-            above_avg = sum(1 for row in trend_analysis_data if row['Z-Score'] > 0)
-            below_avg = sum(1 for row in trend_analysis_data if row['Z-Score'] < 0)
-            significant = sum(1 for row in trend_analysis_data if abs(row['Z-Score']) > 1)
-            highly_significant = sum(1 for row in trend_analysis_data if abs(row['Z-Score']) > 2)
-            
-            with col1:
-                st.metric("Categories Above Avg", f"{above_avg}/{len(trend_analysis_data)}")
-            
-            with col2:
-                st.metric("Categories Below Avg", f"{below_avg}/{len(trend_analysis_data)}")
-            
-            with col3:
-                st.metric("Significant Deviations", f"{significant}/{len(trend_analysis_data)}")
-            
-            with col4:
-                st.metric("Highly Significant", f"{highly_significant}/{len(trend_analysis_data)}")
-    
-    with tab3:
-        st.markdown("##### Risk Metrics")
-        
-        risk_data = []
-        for category, data in data_dict.items():
-            if 'flows' in data and not data['flows'].empty:
-                flows = data['flows']['Flow'].dropna()
-                
-                if len(flows) >= 12:
-                    returns = flows.pct_change().dropna()
-                    
-                    if len(returns) > 0:
-                        # Calculate risk metrics
-                        volatility = returns.std() * np.sqrt(12)
-                        sharpe = returns.mean() / returns.std() * np.sqrt(12) if returns.std() != 0 else 0
-                        
-                        # Downside risk
-                        downside_returns = returns[returns < 0]
-                        sortino = returns.mean() / downside_returns.std() * np.sqrt(12) if len(downside_returns) > 0 else 0
-                        
-                        # Maximum drawdown
-                        cum_returns = (1 + returns).cumprod()
-                        running_max = cum_returns.expanding().max()
-                        drawdown = (cum_returns - running_max) / running_max
-                        max_drawdown = drawdown.min()
-                        
-                        # Value at Risk
-                        var_95 = np.percentile(returns, 5)
-                        
-                        risk_data.append({
-                            'Category': category,
-                            'Annual Volatility': f"{volatility:.2%}",
-                            'Sharpe Ratio': f"{sharpe:.3f}",
-                            'Sortino Ratio': f"{sortino:.3f}",
-                            'Max Drawdown': f"{max_drawdown:.2%}",
-                            'VaR (95%)': f"{var_95:.2%}"
-                        })
-        
-        if risk_data:
-            risk_df = pd.DataFrame(risk_data)
-            st.dataframe(risk_df, use_container_width=True, height=400)
-
-def create_composition_analysis(data_dict):
-    """Create composition analysis with latest date"""
-    latest_date = get_latest_date_info(data_dict)
-    
-    st.markdown(f"""
-    <div class="section-header">
-        <span>Composition Analysis</span>
-        <span class="date-indicator">Latest Data: {latest_date}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if not data_dict:
-        st.warning("No data available")
-        return
-    
-    # Get latest asset values
-    asset_values = {}
-    for category, data in data_dict.items():
-        if 'assets' in data and not data['assets'].empty:
-            asset_values[category] = data['assets'].iloc[-1, 0]
-    
-    if asset_values:
-        # Asset composition pie chart
-        fig = go.Figure(data=[go.Pie(
-            labels=list(asset_values.keys()),
-            values=list(asset_values.values()),
-            hole=0.3,
-            marker_colors=[data_dict[cat].get('color', PROFESSIONAL_COLORS[idx % len(PROFESSIONAL_COLORS)]) 
-                          for idx, cat in enumerate(asset_values.keys())],
-            textinfo='label+percent',
-            hovertemplate="%{label}<br>$%{value:,.0f}M<br>%{percent}<extra></extra>"
-        )])
-        
-        fig.update_layout(
-            title="Latest Asset Composition",
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-def create_data_explorer(data_dict, frequency):
-    """Create comprehensive data explorer with decomposition"""
-    latest_date = get_latest_date_info(data_dict)
-    
-    st.markdown(f"""
-    <div class="section-header">
-        <span>Data Explorer & Decomposition</span>
-        <span class="date-indicator">Latest Data: {latest_date}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if not data_dict:
-        st.warning("No data available")
-        return
-    
-    # Category selection for detailed analysis
-    selected_category = st.selectbox(
-        "Select category for detailed analysis",
-        list(data_dict.keys()),
-        key="explorer_category"
-    )
-    
-    if selected_category not in data_dict:
-        return
-    
-    data = data_dict[selected_category]
-    
-    # Display data table
-    st.markdown("##### Raw Data Table")
-    
-    display_df = data['assets'].copy()
-    display_df.index.name = 'Date'
-    display_df = display_df.reset_index()
-    display_df['Flow'] = data['flows'].values if 'flows' in data else 0
-    display_df['% Change'] = data['pct_change'].values if 'pct_change' in data else 0
-    
-    # Format columns
-    display_df['Value'] = display_df['Value'].apply(lambda x: f"${x:,.0f}M" if pd.notnull(x) else "")
-    display_df['Flow'] = display_df['Flow'].apply(lambda x: f"${x:,.0f}M" if pd.notnull(x) else "")
-    display_df['% Change'] = display_df['% Change'].apply(lambda x: f"{x:+.2f}%" if pd.notnull(x) else "")
-    
-    # Show latest data first
-    display_df = display_df.sort_values('Date', ascending=False)
-    
-    rows_to_show = st.slider("Rows to display", 10, 100, 20, key="explorer_rows")
-    st.dataframe(display_df.head(rows_to_show), use_container_width=True, height=300)
-    
-    # Summary statistics
-    st.markdown("##### Summary Statistics")
-    
-    if 'flows' in data and not data['flows'].empty:
-        flows = data['flows']['Flow'].dropna()
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Mean Flow", f"${flows.mean():,.0f}M")
-        
-        with col2:
-            st.metric("Std Deviation", f"${flows.std():,.0f}M")
-        
-        with col3:
-            st.metric("Min Flow", f"${flows.min():,.0f}M")
-        
-        with col4:
-            st.metric("Max Flow", f"${flows.max():,.0f}M")
-    
-    # Time Series Decomposition
-    st.markdown("##### Time Series Decomposition")
-    
-    if 'flows' in data and len(data['flows']) >= 24:  # Need enough data for decomposition
-        try:
-            flows_series = data['flows']['Flow'].dropna()
-            
-            # Perform decomposition
-            decomposition = seasonal_decompose(flows_series, model='additive', period=12 if frequency == 'monthly' else 24)
-            
-            # Create decomposition plot
-            fig = make_subplots(
-                rows=4, cols=1,
-                subplot_titles=['Original Series', 'Trend Component', 
-                               'Seasonal Component', 'Residual Component'],
-                vertical_spacing=0.08
-            )
-            
-            # Add traces
-            fig.add_trace(
-                go.Scatter(x=flows_series.index, y=flows_series, name='Original', 
-                          line=dict(color='#2c3e50', width=2)),
+            fig_inflows.add_trace(
+                go.Bar(
+                    x=inflow_categories,
+                    y=latest_inflows,
+                    name='Latest Inflow',
+                    marker_color=inflow_colors,
+                    text=[f"${x:,.0f}M" for x in latest_inflows],
+                    textposition='auto',
+                    hovertemplate='%{x}<br>Inflow: $%{y:,.0f}M<extra></extra>'
+                ),
                 row=1, col=1
             )
             
-            fig.add_trace(
-                go.Scatter(x=decomposition.trend.index, y=decomposition.trend, 
-                          name='Trend', line=dict(color='#3498db', width=2)),
+            # 2. Inflow Trend Analysis
+            for idx, category in enumerate(inflow_categories[:3]):  # Show top 3 for clarity
+                data = data_dict[category]
+                flows = data['flows']['Flow']
+                
+                if len(flows) >= 12:
+                    # Calculate moving average
+                    ma_window = min(12, len(flows))
+                    ma = flows.rolling(window=ma_window).mean()
+                    
+                    fig_inflows.add_trace(
+                        go.Scatter(
+                            x=flows.index,
+                            y=flows,
+                            name=f'{category} Flow',
+                            mode='lines',
+                            line=dict(width=1.5, color=data['color']),
+                            showlegend=True,
+                            hovertemplate='%{x|%b %Y}<br>' + f'{category}: $%{{y:,.0f}}M<extra></extra>'
+                        ),
+                        row=1, col=2
+                    )
+                    
+                    # Add moving average
+                    fig_inflows.add_trace(
+                        go.Scatter(
+                            x=ma.index,
+                            y=ma,
+                            name=f'{category} {ma_window}-period MA',
+                            mode='lines',
+                            line=dict(width=2, color=data['color'], dash='dash'),
+                            showlegend=True,
+                            hovertemplate='%{x|%b %Y}<br>' + f'{category} MA: $%{{y:,.0f}}M<extra></extra>'
+                        ),
+                        row=1, col=2
+                    )
+            
+            # 3. Inflow Contribution Pie Chart
+            inflow_values = [data_dict[cat]['flows'].iloc[-1, 0] for cat in inflow_categories]
+            fig_inflows.add_trace(
+                go.Pie(
+                    labels=inflow_categories,
+                    values=inflow_values,
+                    hole=0.4,
+                    marker_colors=[data_dict[cat]['color'] for cat in inflow_categories],
+                    textinfo='label+percent',
+                    hovertemplate='%{label}<br>$%{value:,.0f}M<br>%{percent}<extra></extra>'
+                ),
                 row=2, col=1
             )
             
-            fig.add_trace(
-                go.Scatter(x=decomposition.seasonal.index, y=decomposition.seasonal, 
-                          name='Seasonal', line=dict(color='#27ae60', width=2)),
-                row=3, col=1
+            # 4. Inflow Volatility Analysis
+            for idx, category in enumerate(inflow_categories[:2]):  # Show top 2 for clarity
+                data = data_dict[category]
+                flows = data['flows']['Flow']
+                
+                if len(flows) >= 20:
+                    # Calculate rolling volatility
+                    rolling_vol = flows.rolling(window=6).std()
+                    
+                    fig_inflows.add_trace(
+                        go.Scatter(
+                            x=flows.index,
+                            y=rolling_vol,
+                            name=f'{category} Volatility',
+                            mode='lines',
+                            line=dict(width=2, color=data['color']),
+                            fill='tozeroy',
+                            fillcolor=f'rgba{tuple(list(px.colors.hex_to_rgb(data["color"])) + [0.2])}',
+                            showlegend=True,
+                            hovertemplate='%{x|%b %Y}<br>' + f'{category} σ: $%{{y:,.0f}}M<extra></extra>'
+                        ),
+                        row=2, col=2
+                    )
+            
+            fig_inflows.update_layout(
+                height=700,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white'
             )
             
-            fig.add_trace(
-                go.Scatter(x=decomposition.resid.index, y=decomposition.resid, 
-                          name='Residual', line=dict(color='#e74c3c', width=2)),
-                row=4, col=1
+            st.plotly_chart(fig_inflows, use_container_width=True)
+            
+            # Inflow Statistics
+            st.markdown("##### Inflow Statistics")
+            
+            inflow_stats = []
+            for category in inflow_categories:
+                data = data_dict[category]
+                flows = data['flows']['Flow']
+                
+                if len(flows) > 0:
+                    latest = flows.iloc[-1]
+                    avg = flows.mean()
+                    std = flows.std()
+                    max_flow = flows.max()
+                    min_flow = flows.min()
+                    
+                    inflow_stats.append({
+                        'Category': category,
+                        'Latest': f"${latest:,.0f}M",
+                        'Average': f"${avg:,.0f}M",
+                        'Std Dev': f"${std:,.0f}M",
+                        'Max': f"${max_flow:,.0f}M",
+                        'Min': f"${min_flow:,.0f}M",
+                        'Volatility': f"{std/avg*100:.1f}%" if avg > 0 else "N/A"
+                    })
+            
+            if inflow_stats:
+                inflow_df = pd.DataFrame(inflow_stats)
+                st.dataframe(inflow_df, use_container_width=True, height=200)
+        else:
+            st.info("No inflows in latest period")
+    
+    with flow_tab2:
+        st.markdown("##### Advanced Outflow Analysis")
+        
+        if outflow_categories:
+            # Create multi-panel outflow analysis
+            fig_outflows = make_subplots(
+                rows=2, cols=2,
+                subplot_titles=[
+                    'Latest Outflows by Category',
+                    'Outflow Trend vs Historical Average',
+                    'Outflow Contribution (%)',
+                    'Outflow Volatility Analysis'
+                ],
+                vertical_spacing=0.12,
+                horizontal_spacing=0.12,
+                specs=[[{'type': 'bar'}, {'type': 'scatter'}],
+                       [{'type': 'pie'}, {'type': 'scatter'}]]
             )
             
-            fig.update_layout(height=700, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            # 1. Latest Outflows Bar Chart
+            latest_outflows = []
+            for category in outflow_categories:
+                latest_flow = abs(data_dict[category]['flows'].iloc[-1, 0])
+                latest_outflows.append(latest_flow)
             
-            # Decomposition statistics
-            st.markdown("##### Decomposition Statistics")
+            # Color by magnitude
+            outflow_colors = ['#e74c3c' if x > np.median(latest_outflows) else '#c0392b' for x in latest_outflows]
             
-            decomp_stats = pd.DataFrame({
-                'Component': ['Trend', 'Seasonal', 'Residual'],
-                'Mean': [decomposition.trend.mean(), decomposition.seasonal.mean(), decomposition.resid.mean()],
-                'Std Dev': [decomposition.trend.std(), decomposition.seasonal.std(), decomposition.resid.std()],
-                'Variance Explained (%)': [
-                    (decomposition.trend.var() / flows_series.var() * 100) if flows_series.var() > 0 else 0,
-                    (decomposition.seasonal.var() / flows_series.var() * 100) if flows_series.var() > 0 else 0,
-                    (decomposition.resid.var() / flows_series.var() * 100) if flows_series.var() > 0 else 0
-                ]
-            })
-            
-            # Format the DataFrame
-            decomp_stats['Mean'] = decomp_stats['Mean'].apply(lambda x: f"${x:,.0f}M")
-            decomp_stats['Std Dev'] = decomp_stats['Std Dev'].apply(lambda x: f"${x:,.0f}M")
-            decomp_stats['Variance Explained (%)'] = decomp_stats['Variance Explained (%)'].apply(lambda x: f"{x:.1f}%")
-            
-            st.dataframe(decomp_stats, use_container_width=True)
-            
-        except Exception as e:
-            st.warning(f"Could not perform decomposition: {str(e)}")
-    else:
-        st.info(f"Need at least 24 periods for decomposition (currently: {len(data['flows']) if 'flows' in data else 0})")
-    
-    # Export options
-    st.markdown("##### Export Data")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if 'assets' in data:
-            csv_data = data['assets'].to_csv()
-            st.download_button(
-                label="Download Asset Data (CSV)",
-                data=csv_data,
-                file_name=f"{selected_category.replace(' ', '_')}_assets.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="export_assets"
+            fig_outflows.add_trace(
+                go.Bar(
+                    x=outflow_categories,
+                    y=latest_outflows,
+                    name='Latest Outflow',
+                    marker_color=outflow_colors,
+                    text=[f"${x:,.0f}M" for x in latest_outflows],
+                    textposition='auto',
+                    hovertemplate='%{x}<br>Outflow: $%{y:,.0f}M<extra></extra>'
+                ),
+                row=1, col=1
             )
-    
-    with col2:
-        if 'flows' in data:
-            csv_flows = data['flows'].to_csv()
-            st.download_button(
-                label="Download Flow Data (CSV)",
-                data=csv_flows,
-                file_name=f"{selected_category.replace(' ', '_')}_flows.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="export_flows"
+            
+            # 2. Outflow Trend Analysis
+            for idx, category in enumerate(outflow_categories[:3]):
+                data = data_dict[category]
+                flows = abs(data['flows']['Flow'])  # Use absolute values for outflow analysis
+                
+                if len(flows) >= 12:
+                    # Calculate moving average
+                    ma_window = min(12, len(flows))
+                    ma = flows.rolling(window=ma_window).mean()
+                    
+                    fig_outflows.add_trace(
+                        go.Scatter(
+                            x=flows.index,
+                            y=flows,
+                            name=f'{category} Outflow',
+                            mode='lines',
+                            line=dict(width=1.5, color=data['color']),
+                            showlegend=True,
+                            hovertemplate='%{x|%b %Y}<br>' + f'{category}: $%{{y:,.0f}}M<extra></extra>'
+                        ),
+                        row=1, col=2
+                    )
+                    
+                    # Add moving average
+                    fig_outflows.add_trace(
+                        go.Scatter(
+                            x=ma.index,
+                            y=ma,
+                            name=f'{category} {ma_window}-period MA',
+                            mode='lines',
+                            line=dict(width=2, color=data['color'], dash='dash'),
+                            showlegend=True,
+                            hovertemplate='%{x|%b %Y}<br>' + f'{category} MA: $%{{y:,.0f}}M<extra></extra>'
+                        ),
+                        row=1, col=2
+                    )
+            
+            # 3. Outflow Contribution Pie Chart
+            outflow_values = [abs(data_dict[cat]['flows'].iloc[-1, 0]) for cat in outflow_categories]
+            fig_outflows.add_trace(
+                go.Pie(
+                    labels=outflow_categories,
+                    values=outflow_values,
+                    hole=0.4,
+                    marker_colors=[data_dict[cat]['color'] for cat in outflow_categories],
+                    textinfo='label+percent',
+                    hovertemplate='%{label}<br>$%{value:,.0f}M<br>%{percent}<extra></extra>'
+                ),
+                row=2, col=1
             )
+            
+            # 4. Outflow Volatility Analysis
+            for idx, category in enumerate(outflow_categories[:2]):
+                data = data_dict[category]
+                flows = abs(data['flows']['Flow'])
+                
+                if len(flows) >= 20:
+                    # Calculate rolling volatility
+                    rolling_vol = flows.rolling(window=6).std()
+                    
+                    fig_outflows.add_trace(
+                        go.Scatter(
+                            x=flows.index,
+                            y=rolling_vol,
+                            name=f'{category} Volatility',
+                            mode='lines',
+                            line=dict(width=2, color=data['color']),
+                            fill='tozeroy',
+                            fillcolor=f'rgba{tuple(list(px.colors.hex_to_rgb(data["color"])) + [0.2])}',
+                            showlegend=True,
+                            hovertemplate='%{x|%b %Y}<br>' + f'{category} σ: $%{{y:,.0f}}M<extra></extra>'
+                        ),
+                        row=2, col=2
+                    )
+            
+            fig_outflows.update_layout(
+                height=700,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white'
+            )
+            
+            st.plotly_chart(fig_outflows, use_container_width=True)
+            
+            # Outflow Statistics
+            st.markdown("##### Outflow Statistics")
+            
+            outflow_stats = []
+            for category in outflow_categories:
+                data = data_dict[category]
+                flows = abs(data['flows']['Flow'])
+                
+                if len(flows) > 0:
+                    latest = flows.iloc[-1]
+                    avg = flows.mean()
+                    std = flows.std()
+                    max_flow = flows.max()
+                    min_flow = flows.min()
+                    
+                    outflow_stats.append({
+                        'Category': category,
+                        'Latest': f"${latest:,.0f}M",
+                        'Average': f"${avg:,.0f}M",
+                        'Std Dev': f"${std:,.0f}M",
+                        'Max': f"${max_flow:,.0f}M",
+                        'Min': f"${min_flow:,.0f}M",
+                        'Volatility': f"{std/avg*100:.1f}%" if avg > 0 else "N/A"
+                    })
+            
+            if outflow_stats:
+                outflow_df = pd.DataFrame(outflow_stats)
+                st.dataframe(outflow_df, use_container_width=True, height=200)
+        else:
+            st.info("No outflows in latest period")
+    
+    with flow_tab3:
+        st.markdown("##### Trend Analysis - Above/Below Trend Indicators")
+        
+        # Configuration for trend analysis
+        col1, col2 = st.columns(2)
+        with col1:
+            trend_window = st.slider("Trend Window (periods)", 4, 24, 12, key="trend_window")
+        
+        with col2:
+            threshold_multiplier = st.slider("Threshold Multiplier", 0.5, 3.0, 1.0, 0.1, key="trend_threshold")
+        
+        # Perform trend analysis for each category
+        trend_results = []
+        
+        for category, data in data_dict.items():
+            if 'flows' in data and not data['flows'].empty:
+                flows = data['flows']['Flow']
+                
+                if len(flows) >= trend_window:
+                    # Calculate trend components
+                    moving_avg = flows.rolling(window=trend_window).mean()
+                    moving_std = flows.rolling(window=trend_window).std()
+                    
+                    latest_flow = flows.iloc[-1]
+                    latest_ma = moving_avg.iloc[-1]
+                    latest_std = moving_std.iloc[-1]
+                    
+                    # Calculate z-score
+                    z_score = (latest_flow - latest_ma) / latest_std if latest_std > 0 else 0
+                    
+                    # Determine trend status
+                    if latest_flow > latest_ma + (latest_std * threshold_multiplier):
+                        trend_status = "Well Above Trend"
+                        status_color = "#27ae60"
+                        status_icon = "📈"
+                    elif latest_flow > latest_ma:
+                        trend_status = "Above Trend"
+                        status_color = "#2ecc71"
+                        status_icon = "↗️"
+                    elif latest_flow < latest_ma - (latest_std * threshold_multiplier):
+                        trend_status = "Well Below Trend"
+                        status_color = "#e74c3c"
+                        status_icon = "📉"
+                    elif latest_flow < latest_ma:
+                        trend_status = "Below Trend"
+                        status_color = "#c0392b"
+                        status_icon = "↘️"
+                    else:
+                        trend_status = "At Trend"
+                        status_color = "#3498db"
+                        status_icon = "➡️"
+                    
+                    # Calculate trend strength
+                    trend_strength = abs(z_score)
+                    
+                    if trend_strength > 2:
+                        strength_label = "Very Strong"
+                        strength_color = "#e74c3c"
+                    elif trend_strength > 1.5:
+                        strength_label = "Strong"
+                        strength_color = "#f39c12"
+                    elif trend_strength > 1:
+                        strength_label = "Moderate"
+                        strength_color = "#f1c40f"
+                    elif trend_strength > 0.5:
+                        strength_label = "Weak"
+                        strength_color = "#3498db"
+                    else:
+                        strength_label = "Very Weak"
+                        strength_color = "#95a5a6"
+                    
+                    trend_results.append({
+                        'Category': category,
+                        'Latest Flow': f"${latest_flow:,.0f}M",
+                        f'{trend_window}-Period MA': f"${latest_ma:,.0f}M",
+                        'Z-Score': f"{z_score:.2f}",
+                        'Trend Status': f"{status_icon} {trend_status}",
+                        'Trend Strength': strength_label,
+                        '_z_score': z_score,
+                        '_latest_flow': latest_flow,
+                        '_latest_ma': latest_ma,
+                        '_color': data['color']
+                    })
+        
+        if trend_results:
+            # Display trend analysis table
+            trend_df = pd.DataFrame(trend_results)
+            trend_df = trend_df.sort_values('_z_score', ascending=False)
+            
+            st.markdown(f"**Trend Analysis using {trend_window}-period Moving Average**")
+            
+            # Display metrics
+            col1, col2, col3, col4 = st.columns(4)
+            
+            above_trend = sum(1 for r in trend_results if r['_z_score'] > 0)
+            below_trend = sum(1 for r in trend_results if r['_z_score'] < 0)
+            strong_trends = sum(1 for r in trend_results if abs(r['_z_score']) > 1.5)
+            
+            with col1:
+                st.metric("Above Trend", f"{above_trend}/{len(trend_results)}")
+            
+            with col2:
+                st.metric("Below Trend", f"{below_trend}/{len(trend_results)}")
+            
+            with col3:
+                st.metric("Strong Trends", f"{strong_trends}/{len(trend_results)}")
+            
+            with col4:
+                avg_z_score = np.mean([abs(r['_z_score']) for r in trend_results])
+                st.metric("Avg Trend Strength", f"{avg_z_score:.2f}")
+            
+            # Create trend visualization
+            fig_trend = go.Figure()
+            
+            for result in trend_results:
+                category = result['Category']
+                latest_flow = result['_latest_flow']
+                latest_ma = result['_latest_ma']
+                z_score = result['_z_score']
+                
+                # Determine marker size based on trend strength
+                marker_size = 15 + abs(z_score) * 10
+                
+                fig_trend.add_trace(go.Scatter(
+                    x=[category],
+                    y=[z_score],
+                    mode='markers',
+                    name=category,
+                    marker=dict(
+                        size=marker_size,
+                        color=result['_color'],
+                        line=dict(width=2, color='white')
+                    ),
+                    text=f"{category}<br>Z-Score: {z_score:.2f}<br>Flow: ${latest_flow:,.0f}M<br>MA: ${latest_ma:,.0f}M",
+                    hoverinfo='text'
+                ))
+            
+            # Add reference lines
+            fig_trend.add_hline(y=threshold_multiplier, line_dash="dash", 
+                               line_color="#27ae60", annotation_text=f"+{threshold_multiplier}σ")
+            fig_trend.add_hline(y=-threshold_multiplier, line_dash="dash", 
+                               line_color="#e74c3c", annotation_text=f"-{threshold_multiplier}σ")
+            fig_trend.add_hline(y=0, line_dash="solid", line_color="#666666", line_width=1)
+            
+            fig_trend.update_layout(
+                title=f"Trend Deviation Analysis (Z-Scores relative to {trend_window}-period MA)",
+                xaxis_title="Category",
+                yaxis_title="Z-Score (Standard Deviations from Trend)",
+                height=500,
+                showlegend=False,
+                plot_bgcolor='white',
+                paper_bgcolor='white'
+            )
+            
+            st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Display trend table
+            display_df = trend_df.drop(columns=['_z_score', '_latest_flow', '_latest_ma', '_color'])
+            st.dataframe(display_df, use_container_width=True, height=300)
+    
+    with flow_tab4:
+        st.markdown("##### Bollinger Band Analysis")
+        
+        # Configuration for Bollinger Bands
+        col1, col2 = st.columns(2)
+        with col1:
+            bb_window = st.slider("Bollinger Band Window", 10, 50, 20, key="bb_window")
+        
+        with col2:
+            bb_std = st.slider("Standard Deviation Multiplier", 1.0, 3.0, 2.0, 0.1, key="bb_std")
+        
+        # Select category for Bollinger Band analysis
+        selected_category = st.selectbox(
+            "Select category for Bollinger Band analysis",
+            list(data_dict.keys()),
+            key="bb_category"
+        )
+        
+        if selected_category in data_dict:
+            data = data_dict[selected_category]
+            flows = data['flows']['Flow']
+            
+            if len(flows) >= bb_window:
+                # Calculate Bollinger Bands
+                middle_band = flows.rolling(window=bb_window).mean()
+                std_dev = flows.rolling(window=bb_window).std()
+                upper_band = middle_band + (std_dev * bb_std)
+                lower_band = middle_band - (std_dev * bb_std)
+                
+                # Create Bollinger Band chart
+                fig_bb = go.Figure()
+                
+                # Add bands with fill
+                fig_bb.add_trace(go.Scatter(
+                    x=upper_band.index,
+                    y=upper_band,
+                    name=f'Upper Band (+{bb_std}σ)',
+                    line=dict(color='#e74c3c', width=1, dash='dash'),
+                    fill=None,
+                    showlegend=True
+                ))
+                
+                fig_bb.add_trace(go.Scatter(
+                    x=lower_band.index,
+                    y=lower_band,
+                    name=f'Lower Band (-{bb_std}σ)',
+                    line=dict(color='#27ae60', width=1, dash='dash'),
+                    fill='tonexty',
+                    fillcolor='rgba(231, 76, 60, 0.1)',
+                    showlegend=True
+                ))
+                
+                # Add middle band
+                fig_bb.add_trace(go.Scatter(
+                    x=middle_band.index,
+                    y=middle_band,
+                    name=f'{bb_window}-Period MA',
+                    line=dict(color='#3498db', width=2),
+                    showlegend=True
+                ))
+                
+                # Add actual flow data
+                fig_bb.add_trace(go.Scatter(
+                    x=flows.index,
+                    y=flows,
+                    name='Actual Flow',
+                    mode='lines+markers',
+                    line=dict(color=data['color'], width=2),
+                    marker=dict(size=4),
+                    showlegend=True,
+                    hovertemplate='%{x|%b %Y}<br>Flow: $%{y:,.0f}M<extra></extra>'
+                ))
+                
+                # Highlight points outside bands
+                outside_upper = flows > upper_band
+                outside_lower = flows < lower_band
+                
+                if outside_upper.any():
+                    fig_bb.add_trace(go.Scatter(
+                        x=flows.index[outside_upper],
+                        y=flows[outside_upper],
+                        mode='markers',
+                        name='Above Upper Band',
+                        marker=dict(color='#e74c3c', size=8, symbol='circle'),
+                        showlegend=True,
+                        hovertemplate='%{x|%b %Y}<br>Above Upper Band: $%{y:,.0f}M<extra></extra>'
+                    ))
+                
+                if outside_lower.any():
+                    fig_bb.add_trace(go.Scatter(
+                        x=flows.index[outside_lower],
+                        y=flows[outside_lower],
+                        mode='markers',
+                        name='Below Lower Band',
+                        marker=dict(color='#27ae60', size=8, symbol='circle'),
+                        showlegend=True,
+                        hovertemplate='%{x|%b %Y}<br>Below Lower Band: $%{y:,.0f}M<extra></extra>'
+                    ))
+                
+                fig_bb.update_layout(
+                    title=f"{selected_category} - Bollinger Band Analysis ({bb_window}-period, ±{bb_std}σ)",
+                    xaxis_title="Date",
+                    yaxis_title="Flow (Millions USD)",
+                    height=500,
+                    hovermode='x unified',
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    )
+                )
+                
+                st.plotly_chart(fig_bb, use_container_width=True)
+                
+                # Bollinger Band Statistics
+                st.markdown("##### Bollinger Band Statistics")
+                
+                latest_flow = flows.iloc[-1]
+                latest_upper = upper_band.iloc[-1] if not pd.isna(upper_band.iloc[-1]) else None
+                latest_lower = lower_band.iloc[-1] if not pd.isna(lower_band.iloc[-1]) else None
+                latest_middle = middle_band.iloc[-1] if not pd.isna(middle_band.iloc[-1]) else None
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if latest_upper and latest_flow > latest_upper:
+                        st.markdown(f"""
+                        <div class='analysis-card'>
+                            <div style='font-size: 0.9rem; color: #666666;'>Current Position</div>
+                            <div style='font-size: 1.2rem; font-weight: 600; color: #e74c3c;'>Above Upper Band</div>
+                            <div style='font-size: 0.8rem; color: #666666;'>${latest_flow - latest_upper:,.0f}M above</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    elif latest_lower and latest_flow < latest_lower:
+                        st.markdown(f"""
+                        <div class='analysis-card'>
+                            <div style='font-size: 0.9rem; color: #666666;'>Current Position</div>
+                            <div style='font-size: 1.2rem; font-weight: 600; color: #27ae60;'>Below Lower Band</div>
+                            <div style='font-size: 0.8rem; color: #666666;'>${latest_lower - latest_flow:,.0f}M below</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div class='analysis-card'>
+                            <div style='font-size: 0.9rem; color: #666666;'>Current Position</div>
+                            <div style='font-size: 1.2rem; font-weight: 600; color: #3498db;'>Within Bands</div>
+                            <div style='font-size: 0.8rem; color: #666666;'>Normal range</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                with col2:
+                    if latest_middle:
+                        bb_percent = ((latest_flow - latest_middle) / latest_middle * 100) if latest_middle != 0 else 0
+                        st.markdown(f"""
+                        <div class='analysis-card'>
+                            <div style='font-size: 0.9rem; color: #666666;'>From Middle Band</div>
+                            <div style='font-size: 1.2rem; font-weight: 600;'>{bb_percent:+.1f}%</div>
+                            <div style='font-size: 0.8rem; color: #666666;'>${latest_flow - latest_middle:,.0f}M</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                with col3:
+                    band_width = latest_upper - latest_lower if latest_upper and latest_lower else 0
+                    bandwidth_percent = (band_width / latest_middle * 100) if latest_middle != 0 else 0
+                    st.markdown(f"""
+                    <div class='analysis-card'>
+                        <div style='font-size: 0.9rem; color: #666666;'>Band Width</div>
+                        <div style='font-size: 1.2rem; font-weight: 600;'>{bandwidth_percent:.1f}%</div>
+                        <div style='font-size: 0.8rem; color: #666666;'>${band_width:,.0f}M</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col4:
+                    # Calculate % time outside bands
+                    total_periods = len(flows.dropna())
+                    outside_bands = (outside_upper | outside_lower).sum()
+                    outside_percent = (outside_bands / total_periods * 100) if total_periods > 0 else 0
+                    
+                    st.markdown(f"""
+                    <div class='analysis-card'>
+                        <div style='font-size: 0.9rem; color: #666666;'>Time Outside Bands</div>
+                        <div style='font-size: 1.2rem; font-weight: 600;'>{outside_percent:.1f}%</div>
+                        <div style='font-size: 0.8rem; color: #666666;'>{outside_bands}/{total_periods} periods</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Band Analysis Insights
+                st.markdown("##### Band Analysis Insights")
+                
+                insights = []
+                
+                if latest_flow > latest_upper:
+                    insights.append("🚨 **Current flow is above upper Bollinger Band** - This suggests potential over-extension and may indicate a reversal opportunity.")
+                elif latest_flow < latest_lower:
+                    insights.append("💡 **Current flow is below lower Bollinger Band** - This may indicate oversold conditions and potential buying opportunity.")
+                
+                if bandwidth_percent > 20:
+                    insights.append("📊 **Wide Bollinger Bands** indicate high volatility in recent periods.")
+                elif bandwidth_percent < 10:
+                    insights.append("📈 **Narrow Bollinger Bands** suggest low volatility and possible consolidation.")
+                
+                if outside_percent > 15:
+                    insights.append("⚠️ **High frequency outside bands** indicates this security frequently trades at extremes relative to its recent average.")
+                
+                for insight in insights:
+                    st.markdown(f"<div class='analysis-card'>{insight}</div>", unsafe_allow_html=True)
+            else:
+                st.warning(f"Insufficient data for Bollinger Band analysis. Need at least {bb_window} periods, have {len(flows)}.")
+    
+    # Flow Correlation Analysis
+    st.markdown("### Flow Correlation Analysis")
+    
+    if len(data_dict) >= 2:
+        # Prepare correlation data
+        flow_series = {}
+        for category, data in data_dict.items():
+            if 'flows' in data and not data['flows'].empty:
+                flow_series[category] = data['flows']['Flow'].dropna()
+        
+        if len(flow_series) >= 2:
+            # Align dates
+            aligned_flows = pd.DataFrame(flow_series).dropna()
+            
+            if not aligned_flows.empty and len(aligned_flows) > 10:
+                correlation_matrix = aligned_flows.corr()
+                
+                # Create correlation heatmap
+                fig_corr = go.Figure(data=go.Heatmap(
+                    z=correlation_matrix.values,
+                    x=correlation_matrix.columns,
+                    y=correlation_matrix.index,
+                    colorscale='RdBu',
+                    zmid=0,
+                    text=correlation_matrix.round(2).values,
+                    texttemplate='%{text}',
+                    textfont={"size": 10},
+                    hovertemplate='%{x} vs %{y}<br>Correlation: %{z:.3f}<extra></extra>'
+                ))
+                
+                fig_corr.update_layout(
+                    title="Flow Correlation Matrix",
+                    height=400,
+                    xaxis_title="Category",
+                    yaxis_title="Category"
+                )
+                
+                st.plotly_chart(fig_corr, use_container_width=True)
+                
+                # Identify strong correlations
+                st.markdown("##### Strong Flow Correlations")
+                
+                strong_corrs = []
+                for i in range(len(correlation_matrix.columns)):
+                    for j in range(i+1, len(correlation_matrix.columns)):
+                        corr_value = correlation_matrix.iloc[i, j]
+                        if abs(corr_value) > 0.5:
+                            cat1 = correlation_matrix.columns[i]
+                            cat2 = correlation_matrix.columns[j]
+                            
+                            strong_corrs.append({
+                                'Pair': f"{cat1} ↔ {cat2}",
+                                'Correlation': f"{corr_value:.3f}",
+                                'Strength': 'Strong' if abs(corr_value) > 0.7 else 'Moderate',
+                                'Direction': 'Positive' if corr_value > 0 else 'Negative'
+                            })
+                
+                if strong_corrs:
+                    corr_df = pd.DataFrame(strong_corrs)
+                    st.dataframe(corr_df, use_container_width=True, height=200)
 
-def main():
-    """Main application function"""
-    
-    # Sidebar
-    with st.sidebar:
-        st.markdown("### Data Configuration")
-        
-        # Frequency selection
-        frequency = st.radio(
-            "Data Frequency",
-            ['monthly', 'weekly'],
-            index=0,
-            key="frequency_select"
-        )
-        
-        # Date range
-        start_date = st.date_input(
-            "Start Date",
-            value=datetime(2015, 1, 1),
-            min_value=datetime(2000, 1, 1),
-            max_value=datetime.today(),
-            key="start_date_select"
-        )
-        
-        st.markdown("---")
-        
-        # Fund categories selection
-        st.markdown("### Fund Categories")
-        
-        all_categories = list(FRED_SERIES.keys())
-        selected_categories = st.multiselect(
-            "Select categories to analyze",
-            all_categories,
-            default=['Total Mutual Fund Assets', 'Equity Funds', 'Bond Funds', 'Money Market Funds'],
-            key="category_select"
-        )
-        
-        st.markdown("---")
-        
-        if st.button("🔄 Refresh Application", use_container_width=True, key="refresh_button"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    # Load data
-    if not selected_categories:
-        st.warning("Please select at least one category")
-        return
-    
-    with st.spinner(f"Loading {frequency} data..."):
-        data_dict = load_fund_data(selected_categories, start_date.strftime('%Y-%m-%d'), frequency)
-    
-    if not data_dict:
-        st.error("Failed to load data")
-        return
-    
-    # Create tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Executive Summary",
-        "Growth Dynamics", 
-        "Flow Dynamics",
-        "Composition",
-        "Statistical Analysis",
-        "Data Explorer"
-    ])
-    
-    with tab1:
-        create_executive_summary(data_dict, frequency)
-    
-    with tab2:
-        create_professional_growth_charts(data_dict)
-    
-    with tab3:
-        create_flow_analysis(data_dict, frequency)
-    
-    with tab4:
-        create_composition_analysis(data_dict)
-    
-    with tab5:
-        create_statistical_analysis(data_dict, frequency)
-    
-    with tab6:
-        create_data_explorer(data_dict, frequency)
-    
-    # Footer
-    st.markdown("""
-    <div class="footer">
-        <p><strong>Institutional Fund Flow Analytics v5.0</strong></p>
-        <p>Professional Platform for Mutual Fund Flow Analysis | Latest Data: {latest_date}</p>
-        <p>All figures in millions of USD | Institutional Use Only</p>
-    </div>
-    """.format(latest_date=get_latest_date_info(data_dict)), unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+# Note: The rest of the functions (create_executive_summary, create_professional_growth_charts, 
+# create_statistical_analysis, create_composition_analysis, create_data_explorer, main) 
+# remain the same as in the previous implementation, just replace the create_flow_analysis 
+# function with this enhanced version.
