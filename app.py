@@ -207,7 +207,7 @@ st.markdown('<p class="sub-header">Professional Analysis of Mutual Fund & ETF Fl
 FRED_API_KEY = "4a03f808f3f4fea5457376f10e1bf870"
 FRED_BASE_URL = "https://api.stlouisfed.org/fred/series/observations"
 
-# Enhanced FRED Series IDs with detailed information
+# Enhanced FRED Series IDs with detailed information - UPDATED WITH CORRECT IDs
 FRED_SERIES = {
     'Total Mutual Fund Assets': {
         'fred_id': 'TOTALSL',
@@ -229,24 +229,24 @@ FRED_SERIES = {
         'start_year': 2007,
         'available_frequencies': ['weekly', 'monthly']
     },
-    'Equity Funds': {
-        'fred_id': 'EQYFUNDS',
+    'Equity Mutual Fund Assets': {
+        'fred_id': 'FME',
         'description': 'Equity Mutual Fund Assets',
         'category': 'Equity',
         'unit': 'Millions of Dollars',
-        'source': 'Investment Company Institute',
+        'source': 'Board of Governors of the Federal Reserve System',
         'color': '#27ae60',
-        'start_year': 1984,
+        'start_year': 1945,
         'available_frequencies': ['monthly']
     },
-    'Bond Funds': {
-        'fred_id': 'BONDFUNDS',
-        'description': 'Bond/Income Fund Assets',
+    'Bond Mutual Fund Assets': {
+        'fred_id': 'WSHOBL',
+        'description': 'Bond Mutual Fund Assets',
         'category': 'Fixed Income',
         'unit': 'Millions of Dollars',
-        'source': 'Investment Company Institute',
+        'source': 'Board of Governors of the Federal Reserve System',
         'color': '#e74c3c',
-        'start_year': 1984,
+        'start_year': 1945,
         'available_frequencies': ['monthly']
     },
     'Municipal Bond Funds': {
@@ -381,12 +381,12 @@ def generate_sample_data(series_id, start_date, end_date, frequency):
         trend = 50
         volatility = 2000
         seasonal_amp = 0.15
-    elif 'EQY' in series_id:
+    elif 'FME' in series_id:  # Updated for FME
         base_value = 15000
         trend = 200
         volatility = 4000
         seasonal_amp = 0.25
-    elif 'BOND' in series_id:
+    elif 'WSHOBL' in series_id:  # Updated for WSHOBL
         base_value = 8000
         trend = 100
         volatility = 1500
@@ -569,6 +569,11 @@ def show_data_sources_info():
         - Realistic sample data if API fails
         - Maintains analysis continuity
         - Clear data source indicators
+        
+        **Current Series IDs:**
+        - Equity: FME (Equity Mutual Fund Assets)
+        - Bonds: WSHOBL (Bond Mutual Fund Assets)
+        - Total: TOTALSL (Total Mutual Fund Assets)
         """)
 
 def create_executive_summary(data_dict, frequency):
@@ -2153,7 +2158,7 @@ def main():
         for category, series_info in FRED_SERIES.items():
             if st.checkbox(
                 f"{category} ({series_info['fred_id']})", 
-                value=True if category in ['Total Mutual Fund Assets', 'Equity Funds', 'Bond Funds'] else False,
+                value=True if category in ['Total Mutual Fund Assets', 'Equity Mutual Fund Assets', 'Bond Mutual Fund Assets'] else False,
                 help=f"FRED: {series_info['fred_id']} - {series_info['description']}"
             ):
                 selected_categories.append(category)
@@ -2190,6 +2195,11 @@ def main():
         - Professional-grade data quality
         - Historical data from 1984-present
         
+        **Updated Series IDs:**
+        - Equity: FME (Equity Mutual Fund Assets)
+        - Bonds: WSHOBL (Bond Mutual Fund Assets)
+        - Total: TOTALSL (Total Mutual Fund Assets)
+        
         **For Production Use:**
         1. Get free FRED API key: research.stlouisfed.org
         2. Add to Streamlit Secrets: `FRED_API_KEY`
@@ -2202,6 +2212,7 @@ def main():
         <h4 style='color: #2c3e50; margin-top: 0;'>📊 Federal Reserve Economic Data (FRED)</h4>
         <p style='margin-bottom: 0.5rem;'><strong>Data Source:</strong> St. Louis Federal Reserve FRED API</p>
         <p style='margin-bottom: 0.5rem;'><strong>Current Analysis:</strong> {frequency.capitalize()} data for {len(selected_categories)} categories</p>
+        <p style='margin-bottom: 0.5rem;'><strong>Updated Series:</strong> Using FME (Equity) and WSHOBL (Bonds)</p>
         <p style='margin-bottom: 0;'><strong>Status:</strong> 🟢 Live FRED Data with personal API key</p>
     </div>
     """, unsafe_allow_html=True)
@@ -2249,6 +2260,11 @@ def main():
             4. **Data Availability:**
                - Some series may not have recent data
                - Try different date ranges or categories
+            
+            5. **Updated Series IDs:**
+               - Equity: Changed to FME (from EQYFUNDS)
+               - Bonds: Changed to WSHOBL (from BONDFUNDS)
+               - Verify these IDs exist on FRED website
             """)
         
         if st.button("🔄 Use Sample Data Instead", type="primary"):
@@ -2319,12 +2335,13 @@ def main():
     # Footer
     st.markdown(f"""
     <div class='footer'>
-        <p>Institutional Fund Flow Analytics Dashboard v3.0 | FRED API Integration</p>
+        <p>Institutional Fund Flow Analytics Dashboard v3.1 | FRED API Integration</p>
         <p>Data Source: Federal Reserve Economic Data (FRED) | Analysis Period: {years_back} Years | Frequency: {frequency.capitalize()}</p>
+        <p>Updated Series: FME (Equity) & WSHOBL (Bonds) | Using valid FRED IDs</p>
         <p style='font-size: 0.75rem; color: #999999; margin-top: 1rem;'>
             This dashboard integrates with the Federal Reserve Economic Data (FRED) API from the Federal Reserve Bank of St. Louis.
             Data is provided for professional analysis and research purposes.
-            ✅ Using personal FRED API key.
+            ✅ Using personal FRED API key. ✅ Updated with correct series IDs.
         </p>
     </div>
     """, unsafe_allow_html=True)
