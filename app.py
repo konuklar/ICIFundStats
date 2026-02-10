@@ -1230,7 +1230,7 @@ def create_advanced_quantitative_analysis(data_dict):
                             color_discrete_sequence=['#3498db']
                         )
                         
-                        # Add normal distribution overlay - FIXED LINE
+                        # Add normal distribution overlay
                         x_norm = np.linspace(returns.min(), returns.max(), 100)
                         y_norm = norm.pdf(x_norm, returns.mean(), returns.std()) * len(returns) * (returns.max() - returns.min()) / 30
                         
@@ -1751,50 +1751,50 @@ def main():
     
     st.session_state.data_dict = data_dict
     
-            # Quantitative Analysis Tab
-            main_tabs = st.tabs([
-            "📊 KPI Dashboard",
-            "📈 Growth Analysis",
-            "🔍 Quantitative Analysis",
-            "📋 Data Explorer"
-        ])
-        
-        with main_tabs[0]:
-            create_comprehensive_kpi_dashboard(data_dict)
-        
-        with main_tabs[1]:
-            create_professional_growth_charts(data_dict)
-        
-        with main_tabs[2]:
-            if show_quantitative:
-                create_advanced_quantitative_analysis(data_dict)
-            else:
-                st.info("Enable 'Show Quantitative Analysis' in sidebar to view this section")
-        
-        with main_tabs[3]:
-            if show_data_explorer:
-                create_data_explorer_tab(data_dict)
-            else:
-                st.info("Enable 'Show Advanced Data Explorer' in sidebar to view this section")
-        
-        # Footer
-        st.markdown("---")
-        st.markdown("""
-        <div class="footer">
-            <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem;">
-                <span>📊 Institutional Fund Flow Analytics</span>
-                <span>•</span>
-                <span>📈 Powered by FRED API</span>
-                <span>•</span>
-                <span>🔒 Professional Analysis Tool</span>
-            </div>
-            <div style="font-size: 0.8rem; color: #666666;">
-                Data Sources: FRED Economic Data | Last Updated: {}
-                <br>
-                For professional use only. All values in millions of USD unless specified.
-            </div>
+    # Main dashboard tabs
+    main_tabs = st.tabs([
+        "📊 KPI Dashboard",
+        "📈 Growth Analysis",
+        "🔍 Quantitative Analysis",
+        "📋 Data Explorer"
+    ])
+    
+    with main_tabs[0]:
+        create_comprehensive_kpi_dashboard(data_dict)
+    
+    with main_tabs[1]:
+        create_professional_growth_charts(data_dict)
+    
+    with main_tabs[2]:
+        if show_quantitative:
+            create_advanced_quantitative_analysis(data_dict)
+        else:
+            st.info("Enable 'Show Quantitative Analysis' in sidebar to view this section")
+    
+    with main_tabs[3]:
+        if show_data_explorer:
+            create_data_explorer_tab(data_dict)
+        else:
+            st.info("Enable 'Show Advanced Data Explorer' in sidebar to view this section")
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div class="footer">
+        <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem;">
+            <span>📊 Institutional Fund Flow Analytics</span>
+            <span>•</span>
+            <span>📈 Powered by FRED API</span>
+            <span>•</span>
+            <span>🔒 Professional Analysis Tool</span>
         </div>
-        """.format(datetime.today().strftime('%B %d, %Y')), unsafe_allow_html=True)
+        <div style="font-size: 0.8rem; color: #666666;">
+            Data Sources: FRED Economic Data | Last Updated: {}
+            <br>
+            For professional use only. All values in millions of USD unless specified.
+        </div>
+    </div>
+    """.format(datetime.today().strftime('%B %d, %Y')), unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
