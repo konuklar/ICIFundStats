@@ -266,7 +266,7 @@ st.markdown('<p class="sub-header">Advanced Statistical Analysis of Mutual Fund 
 FRED_API_KEY = "4a03f808f3f4fea5457376f10e1bf870"
 FRED_BASE_URL = "https://api.stlouisfed.org/fred/series/observations"
 
-# Enhanced FRED Series IDs with detailed information - UPDATED WITH REALISTIC IDs
+# Enhanced FRED Series IDs with detailed information
 FRED_SERIES = {
     'Total Mutual Fund Assets': {
         'fred_id': 'TOTALSL',
@@ -431,80 +431,80 @@ def generate_realistic_sample_data(series_id, start_date, end_date, frequency):
     
     # More realistic base values and parameters based on actual fund data
     if 'TOTALSL' in series_id:  # Total Mutual Fund Assets
-        base_value = 25000000  # $25 trillion
-        trend = 250000  # Monthly growth
-        volatility = 5000000
+        base_value = 25000000.0  # $25 trillion
+        trend = 250000.0  # Monthly growth
+        volatility = 5000000.0
         seasonal_amp = 0.05
         drift = 0.001
         
     elif 'MMMFF' in series_id:  # Money Market Funds
-        base_value = 5000000  # $5 trillion
-        trend = 50000
-        volatility = 1000000
+        base_value = 5000000.0  # $5 trillion
+        trend = 50000.0
+        volatility = 1000000.0
         seasonal_amp = 0.08
         drift = 0.0005
         
     elif 'FME' in series_id:  # Equity Mutual Fund Assets
-        base_value = 15000000  # $15 trillion
-        trend = 200000
-        volatility = 3000000
+        base_value = 15000000.0  # $15 trillion
+        trend = 200000.0
+        volatility = 3000000.0
         seasonal_amp = 0.12
         drift = 0.0015
         
     elif 'WSHOBL' in series_id:  # Bond Mutual Fund Assets
-        base_value = 8000000  # $8 trillion
-        trend = 120000
-        volatility = 1500000
+        base_value = 8000000.0  # $8 trillion
+        trend = 120000.0
+        volatility = 1500000.0
         seasonal_amp = 0.06
         drift = 0.0008
         
     elif 'MUNI' in series_id:  # Municipal Bond Funds
-        base_value = 500000  # $500 billion
-        trend = 8000
-        volatility = 120000
+        base_value = 500000.0  # $500 billion
+        trend = 8000.0
+        volatility = 120000.0
         seasonal_amp = 0.04
         drift = 0.0004
         
     elif 'HYBRID' in series_id:  # Hybrid Funds
-        base_value = 3000000  # $3 trillion
-        trend = 60000
-        volatility = 1000000
+        base_value = 3000000.0  # $3 trillion
+        trend = 60000.0
+        volatility = 1000000.0
         seasonal_amp = 0.07
         drift = 0.0006
         
     elif 'INTL' in series_id:  # International Equity Funds
-        base_value = 4000000  # $4 trillion
-        trend = 120000
-        volatility = 1800000
+        base_value = 4000000.0  # $4 trillion
+        trend = 120000.0
+        volatility = 1800000.0
         seasonal_amp = 0.1
         drift = 0.001
         
     elif 'CORP' in series_id:  # Corporate Bond Funds
-        base_value = 2000000  # $2 trillion
-        trend = 90000
-        volatility = 1300000
+        base_value = 2000000.0  # $2 trillion
+        trend = 90000.0
+        volatility = 1300000.0
         seasonal_amp = 0.05
         drift = 0.0007
         
     else:
-        base_value = 10000000
-        trend = 100000
-        volatility = 2000000
+        base_value = 10000000.0
+        trend = 100000.0
+        volatility = 2000000.0
         seasonal_amp = 0.1
         drift = 0.0009
     
     # Generate time index
-    time_index = np.arange(n)
+    time_index = np.arange(n, dtype=np.float64)
     
     # 1. Trend component with random walk drift
     trend_component = base_value + trend * time_index
     
-    # Add random walk to trend
-    random_walk = np.cumsum(np.random.normal(0, drift * base_value, n))
-    trend_component += random_walk
+    # Add random walk to trend - FIX: Ensure same dtype
+    random_walk = np.cumsum(np.random.normal(0.0, drift * base_value, n).astype(np.float64))
+    trend_component = trend_component.astype(np.float64) + random_walk
     
     # 2. Seasonal component with multiple frequencies
-    seasonal = np.zeros(n)
+    seasonal = np.zeros(n, dtype=np.float64)
     # Annual seasonality
     seasonal += volatility * seasonal_amp * np.sin(2 * np.pi * time_index / periods_per_year)
     # Quarterly seasonality (weaker)
@@ -514,17 +514,18 @@ def generate_realistic_sample_data(series_id, start_date, end_date, frequency):
     if n > periods_per_year * 3:  # Need enough data for cycles
         cycle_length = periods_per_year * 7  # 7-year business cycle
         cyclical = volatility * 0.2 * np.sin(2 * np.pi * time_index / cycle_length)
+        cyclical = cyclical.astype(np.float64)
     else:
-        cyclical = 0
+        cyclical = np.zeros(n, dtype=np.float64)
     
     # 4. Random component with GARCH-like properties
-    random_component = np.zeros(n)
+    random_component = np.zeros(n, dtype=np.float64)
     sigma = volatility * 0.3
     for i in range(1, n):
         # Volatility clustering simulation
         if i > 1:
             sigma = sigma * 0.95 + 0.05 * abs(random_component[i-1])
-        random_component[i] = np.random.normal(0, sigma)
+        random_component[i] = np.random.normal(0.0, sigma)
     
     # 5. Add market shocks (crisis events)
     if n > 60:
@@ -533,22 +534,30 @@ def generate_realistic_sample_data(series_id, start_date, end_date, frequency):
         shock_size = 0.2  # 20% drop
         shock_duration = 12  # 12 months
         if crisis_point + shock_duration < n:
-            shock_pattern = np.linspace(1, 1-shock_size, shock_duration//2)
-            shock_pattern = np.concatenate([shock_pattern, np.linspace(1-shock_size, 1, shock_duration//2)])
-            shock_values = np.ones(n)
+            shock_pattern = np.linspace(1.0, 1.0 - shock_size, shock_duration//2, dtype=np.float64)
+            shock_pattern = np.concatenate([shock_pattern, np.linspace(1.0 - shock_size, 1.0, shock_duration//2, dtype=np.float64)])
+            shock_values = np.ones(n, dtype=np.float64)
             shock_values[crisis_point:crisis_point+shock_duration] = shock_pattern
         else:
-            shock_values = np.ones(n)
+            shock_values = np.ones(n, dtype=np.float64)
     else:
-        shock_values = np.ones(n)
+        shock_values = np.ones(n, dtype=np.float64)
     
-    # Combine all components
-    values = (trend_component + seasonal + cyclical + random_component) * shock_values
-    values = np.abs(values)  # Ensure positive values
+    # Combine all components with proper type casting
+    values = (trend_component.astype(np.float64) + 
+              seasonal.astype(np.float64) + 
+              cyclical.astype(np.float64) + 
+              random_component.astype(np.float64)) * shock_values
+    
+    # Ensure all values are positive
+    values = np.abs(values)
     
     # Add autocorrelation (momentum effect)
     for i in range(1, n):
         values[i] = 0.7 * values[i] + 0.3 * values[i-1]
+    
+    # Ensure all values are float64
+    values = values.astype(np.float64)
     
     df = pd.DataFrame({'Value': values}, index=dates)
     return df
@@ -586,8 +595,7 @@ def load_fund_data(selected_categories, start_date, frequency):
                 use_freq = frequency
             
             # Fetch data from FRED API
-            with st.spinner(f"Fetching {category} data from FRED..."):
-                df, data_source = fetch_fred_data(series_id, start_date, end_date, use_freq)
+            df, data_source = fetch_fred_data(series_id, start_date, end_date, use_freq)
             
             if df is None or df.empty:
                 # Use realistic sample data if API fails
@@ -603,6 +611,10 @@ def load_fund_data(selected_categories, start_date, frequency):
                     st.warning(f"Not enough data points for {category}. Using enhanced sample data.")
                     df = generate_realistic_sample_data(series_id, start_date, end_date, use_freq)
                     data_source_type = 'Simulated'
+                
+                # Ensure data is numeric
+                df['Value'] = pd.to_numeric(df['Value'], errors='coerce')
+                df = df.dropna()
                 
                 # Calculate flows (first difference)
                 df_flows = df.diff()
@@ -646,32 +658,32 @@ def calculate_comprehensive_statistics(data_dict):
                 stats_dict = {}
                 
                 # Basic statistics
-                stats_dict['mean'] = assets.mean()
-                stats_dict['median'] = assets.median()
-                stats_dict['std'] = assets.std()
-                stats_dict['min'] = assets.min()
-                stats_dict['max'] = assets.max()
-                stats_dict['skewness'] = assets.skew()
-                stats_dict['kurtosis'] = assets.kurtosis()
-                stats_dict['cv'] = stats_dict['std'] / stats_dict['mean'] if stats_dict['mean'] != 0 else 0
+                stats_dict['mean'] = float(assets.mean())
+                stats_dict['median'] = float(assets.median())
+                stats_dict['std'] = float(assets.std())
+                stats_dict['min'] = float(assets.min())
+                stats_dict['max'] = float(assets.max())
+                stats_dict['skewness'] = float(assets.skew())
+                stats_dict['kurtosis'] = float(assets.kurtosis())
+                stats_dict['cv'] = float(stats_dict['std'] / stats_dict['mean'] if stats_dict['mean'] != 0 else 0)
                 
                 # Return statistics
                 if len(returns) > 0:
-                    stats_dict['return_mean'] = returns.mean()
-                    stats_dict['return_std'] = returns.std()
-                    stats_dict['sharpe_ratio'] = (returns.mean() / returns.std() * np.sqrt(12)) if returns.std() > 0 else 0
-                    stats_dict['sortino_ratio'] = calculate_sortino_ratio(returns)
-                    stats_dict['max_drawdown'] = calculate_max_drawdown(assets)
+                    stats_dict['return_mean'] = float(returns.mean())
+                    stats_dict['return_std'] = float(returns.std())
+                    stats_dict['sharpe_ratio'] = float((returns.mean() / returns.std() * np.sqrt(12)) if returns.std() > 0 else 0)
+                    stats_dict['sortino_ratio'] = float(calculate_sortino_ratio(returns))
+                    stats_dict['max_drawdown'] = float(calculate_max_drawdown(assets))
                     
                     # Stationarity tests
                     try:
                         adf_result = adfuller(returns.dropna())
-                        stats_dict['adf_statistic'] = adf_result[0]
-                        stats_dict['adf_pvalue'] = adf_result[1]
+                        stats_dict['adf_statistic'] = float(adf_result[0])
+                        stats_dict['adf_pvalue'] = float(adf_result[1])
                         
                         kpss_result = kpss(returns.dropna(), regression='c')
-                        stats_dict['kpss_statistic'] = kpss_result[0]
-                        stats_dict['kpss_pvalue'] = kpss_result[1]
+                        stats_dict['kpss_statistic'] = float(kpss_result[0])
+                        stats_dict['kpss_pvalue'] = float(kpss_result[1])
                     except:
                         stats_dict['adf_statistic'] = None
                         stats_dict['adf_pvalue'] = None
@@ -681,10 +693,11 @@ def calculate_comprehensive_statistics(data_dict):
                 # Trend statistics
                 if len(assets) > 12:
                     # Linear trend
-                    x = np.arange(len(assets))
-                    slope, intercept = np.polyfit(x, assets.values, 1)
-                    stats_dict['trend_slope'] = slope
-                    stats_dict['trend_r2'] = np.corrcoef(x, assets.values)[0, 1]**2
+                    x = np.arange(len(assets), dtype=np.float64)
+                    y = assets.values.astype(np.float64)
+                    slope, intercept = np.polyfit(x, y, 1)
+                    stats_dict['trend_slope'] = float(slope)
+                    stats_dict['trend_r2'] = float(np.corrcoef(x, y)[0, 1]**2)
                 
                 data['statistics'] = stats_dict
     
@@ -694,31 +707,404 @@ def calculate_sortino_ratio(returns, risk_free_rate=0):
     """Calculate Sortino ratio"""
     downside_returns = returns[returns < risk_free_rate]
     if len(downside_returns) == 0:
-        return 0
+        return 0.0
     downside_std = downside_returns.std()
     if downside_std == 0:
-        return 0
-    return (returns.mean() - risk_free_rate) / downside_std * np.sqrt(12)
+        return 0.0
+    return float((returns.mean() - risk_free_rate) / downside_std * np.sqrt(12))
 
 def calculate_max_drawdown(assets):
     """Calculate maximum drawdown"""
     cumulative = (1 + assets.pct_change()).cumprod()
     running_max = cumulative.expanding().max()
     drawdown = (cumulative - running_max) / running_max
-    return drawdown.min() * 100
+    min_drawdown = drawdown.min()
+    return float(min_drawdown * 100 if not pd.isna(min_drawdown) else 0.0)
 
-def decompose_time_series(series, period=12):
-    """Decompose time series into trend, seasonal, and residual components"""
-    try:
-        decomposition = seasonal_decompose(series, model='additive', period=period)
-        return {
-            'observed': decomposition.observed,
-            'trend': decomposition.trend,
-            'seasonal': decomposition.seasonal,
-            'residual': decomposition.resid
-        }
-    except:
-        return None
+def create_executive_summary(data_dict, frequency):
+    """Create executive summary with latest date"""
+    latest_date = get_latest_date_info(data_dict)
+    
+    st.markdown(f"""
+    <div class="section-header">
+        <span>Executive Summary</span>
+        <span class="date-indicator">Latest Data: {latest_date}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if not data_dict:
+        st.warning("No data available")
+        return
+    
+    # Create metrics row
+    cols = st.columns(min(4, len(data_dict)))
+    
+    for idx, (category, data) in enumerate(list(data_dict.items())[:4]):
+        with cols[idx % len(cols)]:
+            if 'flows' in data and not data['flows'].empty and len(data['flows']) > 0:
+                latest_flow = data['flows'].iloc[-1, 0]
+                avg_flow = data['flows'].mean().iloc[0]
+                
+                # Calculate trend vs period average
+                periods = data.get('periods_for_trend', 12)
+                if len(data['flows']) >= periods:
+                    period_avg = data['flows'].iloc[-periods:].mean().iloc[0]
+                    trend = "up" if latest_flow > period_avg else "down" if latest_flow < period_avg else "neutral"
+                else:
+                    trend = "neutral"
+                    period_avg = avg_flow
+                
+                trend_class = f"trend-{trend}"
+                trend_symbol = "↗" if trend == "up" else "↘" if trend == "down" else "→"
+                
+                # Data source badge
+                data_source = data.get('data_source', 'Unknown')
+                badge_class = "badge-fred" if data_source == 'FRED' else "badge-sample"
+                badge_text = "FRED" if data_source == 'FRED' else "Simulated"
+                
+                st.markdown(f"""
+                <div class='metric-card'>
+                    <div class='metric-label'>
+                        {category} 
+                        <span class='data-source-badge {badge_class}'>{badge_text}</span>
+                    </div>
+                    <div class='metric-value'>${abs(latest_flow)/1000:,.1f}B</div>
+                    <div>
+                        <span style='color: {'#27ae60' if latest_flow > 0 else '#e74c3c'};'>
+                            {'+' if latest_flow > 0 else ''}${latest_flow/1000:,.1f}B
+                        </span>
+                        <span class='trend-indicator {trend_class}'>
+                            {trend_symbol} vs {periods} {frequency}
+                        </span>
+                    </div>
+                    <div style='font-size: 0.8rem; color: #666666; margin-top: 8px;'>
+                        {periods}-period avg: ${period_avg/1000:,.1f}B
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+def create_professional_growth_charts(data_dict):
+    """Create professional growth analysis with latest date"""
+    latest_date = get_latest_date_info(data_dict)
+    
+    st.markdown(f"""
+    <div class="section-header">
+        <span>Growth Dynamics Analysis</span>
+        <span class="date-indicator">Latest Data: {latest_date}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if not data_dict:
+        st.warning("No data available")
+        return
+    
+    # Analysis controls
+    col1, col2 = st.columns(2)
+    with col1:
+        analysis_type = st.selectbox(
+            "Analysis Type",
+            ["Cumulative Growth Index", "Rolling Returns", "Risk-Adjusted Performance"],
+            key="growth_type"
+        )
+    
+    with col2:
+        if analysis_type == "Rolling Returns":
+            window = st.slider("Rolling Window Size", 1, 24, 12, key="growth_window")
+        else:
+            window = 12
+    
+    # Prepare growth data
+    fig = go.Figure()
+    
+    for idx, (category, data) in enumerate(data_dict.items()):
+        if 'assets' in data and not data['assets'].empty:
+            assets = data['assets']['Value']
+            color = data.get('color', PROFESSIONAL_COLORS[idx % len(PROFESSIONAL_COLORS)])
+            
+            if analysis_type == "Cumulative Growth Index":
+                y_data = 100 * assets / assets.iloc[0]
+                y_title = "Growth Index (Base = 100)"
+                
+            elif analysis_type == "Rolling Returns":
+                returns = assets.pct_change()
+                y_data = returns.rolling(window=window).mean() * 100
+                y_title = f"{window}-Period Rolling Return (%)"
+                
+            elif analysis_type == "Risk-Adjusted Performance":
+                returns = assets.pct_change()
+                rolling_sharpe = returns.rolling(window=window).mean() / returns.rolling(window=window).std() * np.sqrt(12 if window >= 12 else 4)
+                y_data = rolling_sharpe
+                y_title = f"{window}-Period Rolling Sharpe Ratio"
+            
+            fig.add_trace(go.Scatter(
+                x=y_data.index,
+                y=y_data,
+                name=category,
+                mode='lines',
+                line=dict(width=2, color=color),
+                hovertemplate='%{x|%b %Y}<br>' + f'{category}: %{{y:.2f}}<extra></extra>'
+            ))
+    
+    fig.update_layout(
+        title=f"{analysis_type}",
+        xaxis_title="Date",
+        yaxis_title=y_title,
+        height=500,
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white'
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def create_enhanced_flow_analysis(data_dict, frequency):
+    """Create enhanced institutional flow analysis with trend and Bollinger bands"""
+    latest_date = get_latest_date_info(data_dict)
+    
+    st.markdown(f"""
+    <div class="section-header">
+        <span>Flow Dynamics Analysis</span>
+        <span class="date-indicator">Latest Data: {latest_date}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if not data_dict:
+        st.warning("No data available")
+        return
+    
+    # Create overview metrics
+    st.markdown("### Flow Overview Dashboard")
+    
+    # Calculate summary metrics
+    total_inflows = 0.0
+    total_outflows = 0.0
+    inflow_categories = []
+    outflow_categories = []
+    
+    for category, data in data_dict.items():
+        if 'flows' in data and not data['flows'].empty:
+            latest_flow = data['flows'].iloc[-1, 0]
+            if latest_flow > 0:
+                total_inflows += float(latest_flow)
+                inflow_categories.append(category)
+            else:
+                total_outflows += abs(float(latest_flow))
+                outflow_categories.append(category)
+    
+    # Display flow overview
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Total Inflows</div>
+            <div class='metric-value'>${total_inflows/1000:,.1f}B</div>
+            <div class='flow-indicator flow-in'>{len(inflow_categories)} Categories</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Total Outflows</div>
+            <div class='metric-value'>${total_outflows/1000:,.1f}B</div>
+            <div class='flow-indicator flow-out'>{len(outflow_categories)} Categories</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        net_flow = total_inflows - total_outflows
+        net_color = "#27ae60" if net_flow > 0 else "#e74c3c"
+        net_icon = "↗️" if net_flow > 0 else "↘️"
+        
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Net Flow</div>
+            <div class='metric-value' style='color: {net_color}'>{net_icon} ${abs(net_flow)/1000:,.1f}B</div>
+            <div style='font-size: 0.85rem; color: #666666;'>
+                {'Positive' if net_flow > 0 else 'Negative'} Net Flow
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        flow_ratio = total_inflows / total_outflows if total_outflows > 0 else float('inf')
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>Inflow/Outflow Ratio</div>
+            <div class='metric-value'>{flow_ratio:.2f}:1</div>
+            <div style='font-size: 0.85rem; color: #666666;'>
+                {'Inflow Dominant' if flow_ratio > 1 else 'Outflow Dominant'}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Flow visualization
+    st.markdown("### Flow Trends Analysis")
+    
+    fig_flows = go.Figure()
+    
+    for category, data in data_dict.items():
+        if 'flows' in data and not data['flows'].empty:
+            flows = data['flows']['Flow']
+            color = data.get('color', PROFESSIONAL_COLORS[0])
+            
+            fig_flows.add_trace(go.Scatter(
+                x=flows.index,
+                y=flows,
+                name=category,
+                mode='lines',
+                line=dict(width=1.5, color=color),
+                hovertemplate='%{x|%b %Y}<br>' + f'{category}: $%{{y:,.0f}}M<extra></extra>'
+            ))
+    
+    fig_flows.update_layout(
+        title='Fund Flow Trends',
+        xaxis_title='Date',
+        yaxis_title='Flow ($M)',
+        height=500,
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    st.plotly_chart(fig_flows, use_container_width=True)
+
+def create_comprehensive_kpi_dashboard(data_dict):
+    """Create comprehensive KPI dashboard with enhanced visualizations"""
+    latest_date = get_latest_date_info(data_dict)
+    
+    st.markdown(f"""
+    <div class="section-header">
+        <span>Comprehensive KPI Dashboard</span>
+        <span class="date-indicator">Latest Data: {latest_date}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if not data_dict:
+        st.warning("No data available")
+        return
+    
+    # Calculate comprehensive KPIs
+    total_assets = 0.0
+    total_flows = 0.0
+    category_stats = []
+    
+    for category, data in data_dict.items():
+        if 'assets' in data and not data['assets'].empty and 'flows' in data:
+            latest_assets = float(data['assets'].iloc[-1, 0])
+            latest_flow = float(data['flows'].iloc[-1, 0]) if not data['flows'].empty else 0.0
+            
+            total_assets += latest_assets
+            total_flows += latest_flow
+            
+            # Calculate additional metrics
+            assets_series = data['assets']['Value']
+            flow_series = data['flows']['Flow'].dropna()
+            
+            if len(assets_series) > 12:
+                growth_1y = float((assets_series.iloc[-1] / assets_series.iloc[-13] - 1) * 100)
+                avg_monthly_flow = float(flow_series.tail(12).mean()) if len(flow_series) >= 12 else float(flow_series.mean()) if not flow_series.empty else 0.0
+            else:
+                growth_1y = 0.0
+                avg_monthly_flow = float(flow_series.mean()) if not flow_series.empty else 0.0
+            
+            category_stats.append({
+                'Category': category,
+                'Assets': latest_assets,
+                'Latest Flow': latest_flow,
+                '1Y Growth': growth_1y,
+                'Avg Monthly Flow': avg_monthly_flow,
+                'Color': data['color']
+            })
+    
+    # Create KPI Grid
+    st.markdown("### 📊 Key Performance Indicators")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class='kpi-card'>
+            <div style='font-size: 0.9rem; opacity: 0.9;'>Total Assets</div>
+            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>${total_assets/1000000:,.1f}T</div>
+            <div style='font-size: 0.8rem; opacity: 0.8;'>{len(category_stats)} Categories</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        net_flow = total_flows
+        flow_color = "#27ae60" if net_flow > 0 else "#e74c3c"
+        flow_icon = "↗️" if net_flow > 0 else "↘️"
+        
+        st.markdown(f"""
+        <div class='kpi-card-secondary'>
+            <div style='font-size: 0.9rem; opacity: 0.9;'>Net Monthly Flow</div>
+            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0; color: {flow_color}'>{flow_icon} ${abs(net_flow)/1000:,.1f}B</div>
+            <div style='font-size: 0.8rem; opacity: 0.8;'>{'Inflow' if net_flow > 0 else 'Outflow'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        # Calculate average 1Y growth
+        avg_growth = float(np.mean([s['1Y Growth'] for s in category_stats])) if category_stats else 0.0
+        
+        st.markdown(f"""
+        <div class='kpi-card-tertiary'>
+            <div style='font-size: 0.9rem; opacity: 0.9;'>Avg 1Y Growth</div>
+            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>{avg_growth:+.1f}%</div>
+            <div style='font-size: 0.8rem; opacity: 0.8;'>Weighted Average</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        # Calculate volatility measure
+        volatilities = []
+        for cat in category_stats:
+            data = data_dict[cat['Category']]
+            if 'log_returns' in data:
+                returns = data['log_returns']['Log_Return'].dropna()
+                if len(returns) > 0:
+                    volatilities.append(float(returns.std() * np.sqrt(12)))
+        
+        avg_vol = float(np.mean(volatilities)) if volatilities else 0.0
+        
+        st.markdown(f"""
+        <div class='kpi-card'>
+            <div style='font-size: 0.9rem; opacity: 0.9;'>Avg Annual Volatility</div>
+            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>{avg_vol:.1f}%</div>
+            <div style='font-size: 0.8rem; opacity: 0.8;'>Based on Returns</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Asset composition pie chart
+    st.markdown("### Asset Composition")
+    
+    if category_stats:
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=[s['Category'] for s in category_stats],
+            values=[s['Assets'] for s in category_stats],
+            hole=0.3,
+            marker_colors=[s['Color'] for s in category_stats],
+            textinfo='label+percent',
+            hovertemplate='<b>%{label}</b><br>Assets: $%{value:,.0f}M<br>Share: %{percent}<extra></extra>'
+        )])
+        
+        fig_pie.update_layout(
+            title='Asset Allocation by Category',
+            height=500,
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
 
 def create_asset_decomposition_analysis(data_dict):
     """Create comprehensive asset decomposition analysis"""
@@ -828,261 +1214,6 @@ def create_asset_decomposition_analysis(data_dict):
                     
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Statistical analysis of components
-                    st.markdown("##### Component Statistics")
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.metric("Trend Strength", 
-                                 f"{(abs(decomposition.trend.dropna()).mean() / abs(decomposition.observed.dropna()).mean() * 100):.1f}%",
-                                 help="Percentage of variance explained by trend")
-                    
-                    with col2:
-                        st.metric("Seasonal Strength",
-                                 f"{(abs(decomposition.seasonal.dropna()).mean() / abs(decomposition.observed.dropna()).mean() * 100):.1f}%",
-                                 help="Percentage of variance explained by seasonality")
-                    
-                    with col3:
-                        residual_std = decomposition.resid.dropna().std()
-                        st.metric("Residual Volatility",
-                                 f"${residual_std:,.0f}M",
-                                 help="Standard deviation of residuals")
-                    
-                    with col4:
-                        autocorr = decomposition.resid.dropna().autocorr()
-                        st.metric("Residual Autocorrelation",
-                                 f"{autocorr:.3f}",
-                                 delta="Stationary" if abs(autocorr) < 0.3 else "Auto-correlated",
-                                 delta_color="normal" if abs(autocorr) < 0.3 else "off")
-                    
-                    # Advanced component analysis
-                    st.markdown("##### Advanced Component Analysis")
-                    
-                    tab1, tab2, tab3 = st.tabs(["Trend Analysis", "Seasonality Patterns", "Residual Diagnostics"])
-                    
-                    with tab1:
-                        # Trend analysis
-                        if decomposition.trend.dropna().shape[0] > 1:
-                            x = np.arange(len(decomposition.trend.dropna()))
-                            y = decomposition.trend.dropna().values
-                            slope, intercept = np.polyfit(x, y, 1)
-                            
-                            fig_trend = go.Figure()
-                            
-                            fig_trend.add_trace(go.Scatter(
-                                x=decomposition.trend.dropna().index,
-                                y=y,
-                                mode='lines',
-                                name='Trend',
-                                line=dict(color=data['color'], width=3)
-                            ))
-                            
-                            # Add linear regression line
-                            fig_trend.add_trace(go.Scatter(
-                                x=decomposition.trend.dropna().index,
-                                y=slope * x + intercept,
-                                mode='lines',
-                                name='Linear Fit',
-                                line=dict(color='#e74c3c', dash='dash', width=2)
-                            ))
-                            
-                            fig_trend.update_layout(
-                                title='Trend Component with Linear Regression',
-                                xaxis_title='Date',
-                                yaxis_title='Trend Value',
-                                height=400,
-                                plot_bgcolor='white',
-                                paper_bgcolor='white'
-                            )
-                            
-                            st.plotly_chart(fig_trend, use_container_width=True)
-                            
-                            st.markdown(f"""
-                            **Linear Trend Analysis:**
-                            - **Slope:** ${slope:,.0f} per period
-                            - **Annual Growth Rate:** {(slope * 12 / decomposition.trend.dropna().mean() * 100):.1f}%
-                            - **R² of Linear Fit:** {np.corrcoef(x, y)[0, 1]**2:.3f}
-                            """)
-                    
-                    with tab2:
-                        # Seasonality analysis
-                        seasonal_df = pd.DataFrame({
-                            'Seasonal': decomposition.seasonal,
-                            'Month': decomposition.seasonal.index.month,
-                            'Year': decomposition.seasonal.index.year
-                        })
-                        
-                        monthly_pattern = seasonal_df.groupby('Month')['Seasonal'].mean()
-                        
-                        fig_seasonal = go.Figure()
-                        
-                        fig_seasonal.add_trace(go.Bar(
-                            x=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                            y=monthly_pattern.values,
-                            marker_color='#3498db',
-                            text=[f"${v:,.0f}M" for v in monthly_pattern.values],
-                            textposition='auto'
-                        ))
-                        
-                        fig_seasonal.update_layout(
-                            title='Average Monthly Seasonality Pattern',
-                            xaxis_title='Month',
-                            yaxis_title='Seasonal Component ($M)',
-                            height=400,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white'
-                        )
-                        
-                        st.plotly_chart(fig_seasonal, use_container_width=True)
-                        
-                        # Year-over-year seasonality
-                        if len(seasonal_df['Year'].unique()) >= 2:
-                            seasonal_pivot = seasonal_df.pivot_table(
-                                index='Month',
-                                columns='Year',
-                                values='Seasonal',
-                                aggfunc='mean'
-                            )
-                            
-                            fig_yoy = go.Figure()
-                            for year in seasonal_pivot.columns:
-                                fig_yoy.add_trace(go.Scatter(
-                                    x=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                                    y=seasonal_pivot[year],
-                                    mode='lines+markers',
-                                    name=str(year),
-                                    hovertemplate='%{x} %{text}<br>Seasonal: $%{y:,.0f}M<extra></extra>',
-                                    text=[str(year)] * 12
-                                ))
-                            
-                            fig_yoy.update_layout(
-                                title='Year-over-Year Seasonality Comparison',
-                                xaxis_title='Month',
-                                yaxis_title='Seasonal Component ($M)',
-                                height=400,
-                                hovermode='x unified',
-                                plot_bgcolor='white',
-                                paper_bgcolor='white'
-                            )
-                            
-                            st.plotly_chart(fig_yoy, use_container_width=True)
-                    
-                    with tab3:
-                        # Residual diagnostics
-                        residuals = decomposition.resid.dropna()
-                        
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            # Histogram of residuals
-                            fig_hist = px.histogram(
-                                x=residuals,
-                                nbins=30,
-                                title='Residual Distribution',
-                                labels={'x': 'Residual Value', 'y': 'Frequency'},
-                                color_discrete_sequence=['#e74c3c']
-                            )
-                            
-                            fig_hist.add_vline(x=residuals.mean(), line_dash="dash", line_color="#2c3e50",
-                                              annotation_text=f"Mean: ${residuals.mean():,.0f}M")
-                            fig_hist.add_vline(x=residuals.mean() + residuals.std(), line_dash="dot", line_color="#3498db")
-                            fig_hist.add_vline(x=residuals.mean() - residuals.std(), line_dash="dot", line_color="#3498db")
-                            
-                            fig_hist.update_layout(
-                                height=400,
-                                plot_bgcolor='white',
-                                paper_bgcolor='white'
-                            )
-                            
-                            st.plotly_chart(fig_hist, use_container_width=True)
-                        
-                        with col2:
-                            # Q-Q plot
-                            qq = stats.probplot(residuals, dist="norm")
-                            x = np.array([qq[0][0][0], qq[0][0][-1]])
-                            
-                            fig_qq = go.Figure()
-                            
-                            fig_qq.add_trace(go.Scatter(
-                                x=qq[0][0],
-                                y=qq[0][1],
-                                mode='markers',
-                                name='Residuals',
-                                marker=dict(color='#e74c3c', size=8)
-                            ))
-                            
-                            fig_qq.add_trace(go.Scatter(
-                                x=x,
-                                y=qq[1][1] + qq[1][0] * x,
-                                mode='lines',
-                                name='Normal',
-                                line=dict(color='#2c3e50', dash='dash')
-                            ))
-                            
-                            fig_qq.update_layout(
-                                title='Q-Q Plot (Normality Test)',
-                                xaxis_title='Theoretical Quantiles',
-                                yaxis_title='Sample Quantiles',
-                                height=400,
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                showlegend=True
-                            )
-                            
-                            st.plotly_chart(fig_qq, use_container_width=True)
-                        
-                        # Normality test
-                        if len(residuals) <= 5000:
-                            stat, p_value = stats.shapiro(residuals)
-                            
-                            st.markdown(f"""
-                            **Normality Test (Shapiro-Wilk):**
-                            - **Test Statistic:** {stat:.4f}
-                            - **p-value:** {p_value:.4f}
-                            - **Interpretation:** {'Residuals appear normal (fail to reject H₀)' if p_value > 0.05 else 'Residuals do not appear normal (reject H₀)'}
-                            """)
-                        
-                        # Autocorrelation of residuals
-                        max_lag = min(20, len(residuals) // 2)
-                        autocorr = [residuals.autocorr(lag=i) for i in range(1, max_lag + 1)]
-                        
-                        fig_acf = go.Figure()
-                        
-                        fig_acf.add_trace(go.Bar(
-                            x=list(range(1, max_lag + 1)),
-                            y=autocorr,
-                            marker_color='#9b59b6',
-                            hovertemplate='Lag: %{x}<br>Autocorrelation: %{y:.3f}<extra></extra>'
-                        ))
-                        
-                        significance = 1.96 / np.sqrt(len(residuals))
-                        fig_acf.add_hline(y=significance, line_dash="dash", line_color="#e74c3c",
-                                         annotation_text="95% Upper Band", annotation_position="top right")
-                        fig_acf.add_hline(y=-significance, line_dash="dash", line_color="#e74c3c",
-                                         annotation_text="95% Lower Band", annotation_position="bottom right")
-                        fig_acf.add_hline(y=0, line_dash="solid", line_color="#666666", opacity=0.5)
-                        
-                        fig_acf.update_layout(
-                            title='Autocorrelation Function of Residuals',
-                            xaxis_title='Lag',
-                            yaxis_title='Autocorrelation',
-                            height=400,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white'
-                        )
-                        
-                        st.plotly_chart(fig_acf, use_container_width=True)
-                        
-                        # Check for significant autocorrelation
-                        significant_lags = sum(1 for ac in autocorr if abs(ac) > significance)
-                        if significant_lags > 0:
-                            st.warning(f"**Residual Autocorrelation Detected:** {significant_lags} out of {max_lag} lags show significant autocorrelation. This suggests the model may not have captured all systematic patterns.")
-                        else:
-                            st.success("**No significant residual autocorrelation detected.** The decomposition appears to have captured the main systematic patterns.")
-                
                 except Exception as e:
                     st.error(f"Decomposition failed: {str(e)}")
                     st.info("Try selecting a different category or using additive model.")
@@ -1090,231 +1221,6 @@ def create_asset_decomposition_analysis(data_dict):
                 st.warning("Need at least 24 periods (2 years) for meaningful decomposition analysis")
         else:
             st.warning("No asset data available for selected category")
-
-def create_comprehensive_kpi_dashboard(data_dict):
-    """Create comprehensive KPI dashboard with enhanced visualizations"""
-    latest_date = get_latest_date_info(data_dict)
-    
-    st.markdown(f"""
-    <div class="section-header">
-        <span>Comprehensive KPI Dashboard</span>
-        <span class="date-indicator">Latest Data: {latest_date}</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if not data_dict:
-        st.warning("No data available")
-        return
-    
-    # Calculate comprehensive KPIs
-    total_assets = 0
-    total_flows = 0
-    category_stats = []
-    
-    for category, data in data_dict.items():
-        if 'assets' in data and not data['assets'].empty and 'flows' in data:
-            latest_assets = data['assets'].iloc[-1, 0]
-            latest_flow = data['flows'].iloc[-1, 0] if not data['flows'].empty else 0
-            
-            total_assets += latest_assets
-            total_flows += latest_flow
-            
-            # Calculate additional metrics
-            assets_series = data['assets']['Value']
-            flow_series = data['flows']['Flow'].dropna()
-            
-            if len(assets_series) > 12:
-                growth_1y = (assets_series.iloc[-1] / assets_series.iloc[-13] - 1) * 100
-                avg_monthly_flow = flow_series.tail(12).mean() if len(flow_series) >= 12 else flow_series.mean()
-            else:
-                growth_1y = 0
-                avg_monthly_flow = flow_series.mean() if not flow_series.empty else 0
-            
-            category_stats.append({
-                'Category': category,
-                'Assets': latest_assets,
-                'Latest Flow': latest_flow,
-                '1Y Growth': growth_1y,
-                'Avg Monthly Flow': avg_monthly_flow,
-                'Color': data['color']
-            })
-    
-    # Create KPI Grid
-    st.markdown("### 📊 Key Performance Indicators")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-        <div class='kpi-card'>
-            <div style='font-size: 0.9rem; opacity: 0.9;'>Total Assets</div>
-            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>${total_assets/1000000:,.1f}T</div>
-            <div style='font-size: 0.8rem; opacity: 0.8;'>{len(category_stats)} Categories</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        net_flow = total_flows
-        flow_color = "#27ae60" if net_flow > 0 else "#e74c3c"
-        flow_icon = "↗️" if net_flow > 0 else "↘️"
-        
-        st.markdown(f"""
-        <div class='kpi-card-secondary'>
-            <div style='font-size: 0.9rem; opacity: 0.9;'>Net Monthly Flow</div>
-            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0; color: {flow_color}'>{flow_icon} ${abs(net_flow)/1000:,.1f}B</div>
-            <div style='font-size: 0.8rem; opacity: 0.8;'>{'Inflow' if net_flow > 0 else 'Outflow'}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        # Calculate average 1Y growth
-        avg_growth = np.mean([s['1Y Growth'] for s in category_stats]) if category_stats else 0
-        
-        st.markdown(f"""
-        <div class='kpi-card-tertiary'>
-            <div style='font-size: 0.9rem; opacity: 0.9;'>Avg 1Y Growth</div>
-            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>{avg_growth:+.1f}%</div>
-            <div style='font-size: 0.8rem; opacity: 0.8;'>Weighted Average</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        # Calculate volatility measure
-        volatilities = []
-        for cat in category_stats:
-            data = data_dict[cat['Category']]
-            if 'log_returns' in data:
-                returns = data['log_returns']['Log_Return'].dropna()
-                if len(returns) > 0:
-                    volatilities.append(returns.std() * np.sqrt(12))
-        
-        avg_vol = np.mean(volatilities) if volatilities else 0
-        
-        st.markdown(f"""
-        <div class='kpi-card'>
-            <div style='font-size: 0.9rem; opacity: 0.9;'>Avg Annual Volatility</div>
-            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>{avg_vol:.1f}%</div>
-            <div style='font-size: 0.8rem; opacity: 0.8;'>Based on Returns</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Create enhanced visualizations
-    st.markdown("### 📈 Advanced Visualizations")
-    
-    viz_tab1, viz_tab2, viz_tab3 = st.tabs(["Asset Composition", "Growth Comparison", "Flow Heatmap"])
-    
-    with viz_tab1:
-        # Asset composition sunburst chart
-        if category_stats:
-            # Prepare data for sunburst
-            parents = ['Total'] * len(category_stats)
-            labels = [s['Category'] for s in category_stats]
-            values = [s['Assets'] for s in category_stats]
-            colors = [s['Color'] for s in category_stats]
-            
-            fig_sunburst = go.Figure(go.Sunburst(
-                labels=['Total'] + labels,
-                parents=[''] + parents,
-                values=[total_assets] + values,
-                marker=dict(colors=['#2c3e50'] + colors),
-                hovertemplate='<b>%{label}</b><br>' +
-                            'Assets: $%{value:,.0f}M<br>' +
-                            'Percentage: %{percentParent:.1%}<extra></extra>',
-                branchvalues="total"
-            ))
-            
-            fig_sunburst.update_layout(
-                title='Asset Composition (Sunburst View)',
-                height=600,
-                plot_bgcolor='white',
-                paper_bgcolor='white'
-            )
-            
-            st.plotly_chart(fig_sunburst, use_container_width=True)
-    
-    with viz_tab2:
-        # Growth comparison radar chart
-        if len(category_stats) >= 3:
-            categories = [s['Category'] for s in category_stats]
-            growth_rates = [s['1Y Growth'] for s in category_stats]
-            avg_flows = [abs(s['Avg Monthly Flow']/1000) for s in category_stats]  # Convert to billions
-            
-            fig_radar = go.Figure()
-            
-            fig_radar.add_trace(go.Scatterpolar(
-                r=growth_rates,
-                theta=categories,
-                fill='toself',
-                name='1Y Growth (%)',
-                line_color='#27ae60'
-            ))
-            
-            # Normalize flows for second axis
-            if max(avg_flows) > 0:
-                normalized_flows = [f/max(avg_flows)*100 for f in avg_flows]
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=normalized_flows,
-                    theta=categories,
-                    fill='toself',
-                    name='Avg Flow (Normalized)',
-                    line_color='#3498db'
-                ))
-            
-            fig_radar.update_layout(
-                title='Growth & Flow Comparison (Radar Chart)',
-                polar=dict(
-                    radialaxis=dict(
-                        visible=True,
-                        range=[min(min(growth_rates), 0) - 5, max(max(growth_rates), max(normalized_flows)) + 5]
-                    )),
-                showlegend=True,
-                height=500,
-                plot_bgcolor='white',
-                paper_bgcolor='white'
-            )
-            
-            st.plotly_chart(fig_radar, use_container_width=True)
-    
-    with viz_tab3:
-        # Flow heatmap over time
-        if len(data_dict) >= 2 and len(next(iter(data_dict.values()))['flows']) >= 12:
-            # Prepare heatmap data
-            heatmap_data = []
-            categories_list = []
-            
-            for category in list(data_dict.keys())[:8]:  # Limit to 8 categories for readability
-                data = data_dict[category]
-                flows = data['flows']['Flow']
-                if len(flows) >= 12:
-                    # Get last 12 months
-                    recent_flows = flows.tail(12)
-                    heatmap_data.append(recent_flows.values)
-                    categories_list.append(category)
-            
-            if heatmap_data:
-                # Create heatmap
-                fig_heatmap = go.Figure(data=go.Heatmap(
-                    z=heatmap_data,
-                    x=[f'M-{i}' for i in range(12, 0, -1)],  # Last 12 months
-                    y=categories_list,
-                    colorscale='RdYlGn',
-                    zmid=0,
-                    text=np.round(heatmap_data, 1),
-                    texttemplate='$%{text:.0f}M',
-                    textfont={"size": 10},
-                    hovertemplate='<b>%{y}</b><br>Month: %{x}<br>Flow: $%{z:,.0f}M<extra></extra>'
-                ))
-                
-                fig_heatmap.update_layout(
-                    title='Monthly Flow Heatmap (Last 12 Months)',
-                    height=400,
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    xaxis_title='Months Ago',
-                    yaxis_title='Category'
-                )
-                
-                st.plotly_chart(fig_heatmap, use_container_width=True)
 
 def create_data_explorer_tab(data_dict):
     """Create advanced data explorer tab with comprehensive tables and statistics"""
@@ -1329,15 +1235,10 @@ def create_data_explorer_tab(data_dict):
         st.warning("No data available")
         return
     
-    # Calculate comprehensive statistics first
+    # Calculate comprehensive statistics
     data_dict = calculate_comprehensive_statistics(data_dict)
     
-    explorer_tab1, explorer_tab2, explorer_tab3, explorer_tab4 = st.tabs([
-        "📋 Historical Data Table",
-        "📈 Statistical Summary",
-        "🔍 Time Series Analysis",
-        "📊 Correlation Matrix"
-    ])
+    explorer_tab1, explorer_tab2 = st.tabs(["📋 Historical Data Table", "📈 Statistical Summary"])
     
     with explorer_tab1:
         st.markdown("##### Complete Historical Data")
@@ -1376,38 +1277,14 @@ def create_data_explorer_tab(data_dict):
                 display_df = combined_df.copy()
                 display_df.index = display_df.index.strftime('%Y-%m-%d')
                 
-                # Add color formatting
-                def color_flow(val):
-                    if pd.isna(val):
-                        return ''
-                    elif val > 0:
-                        return 'background-color: rgba(39, 174, 96, 0.2); color: #27ae60;'
-                    elif val < 0:
-                        return 'background-color: rgba(231, 76, 60, 0.2); color: #e74c3c;'
-                    else:
-                        return ''
-                
-                def color_return(val):
-                    if pd.isna(val):
-                        return ''
-                    elif val > 0:
-                        return 'background-color: rgba(39, 174, 96, 0.1); color: #27ae60;'
-                    elif val < 0:
-                        return 'background-color: rgba(231, 76, 60, 0.1); color: #e74c3c;'
-                    else:
-                        return ''
-                
-                # Apply formatting
-                styled_df = display_df.style.format({
+                # Display table
+                st.dataframe(display_df.style.format({
                     'Assets': '${:,.0f}M',
                     'Flow': '${:,.0f}M',
                     'Assets_Change': '{:.2f}%',
                     'Log_Return': '{:.2f}%',
                     'Cumulative_Return': '{:.2f}'
-                }).applymap(color_flow, subset=['Flow']).applymap(color_return, subset=['Assets_Change', 'Log_Return'])
-                
-                # Display table
-                st.dataframe(styled_df, use_container_width=True, height=400)
+                }), use_container_width=True, height=400)
                 
                 # Download option
                 csv = combined_df.to_csv()
@@ -1442,311 +1319,6 @@ def create_data_explorer_tab(data_dict):
         if stats_data:
             stats_df = pd.DataFrame(stats_data)
             st.dataframe(stats_df, use_container_width=True, height=400)
-            
-            # Statistical visualization
-            st.markdown("##### Distribution Comparison")
-            
-            # Select metrics for comparison
-            col1, col2 = st.columns(2)
-            with col1:
-                metric_x = st.selectbox(
-                    "X-axis Metric",
-                    ['Mean ($M)', 'Std Dev ($M)', 'Annual Return', 'Sharpe Ratio'],
-                    key="metric_x"
-                )
-            
-            with col2:
-                metric_y = st.selectbox(
-                    "Y-axis Metric",
-                    ['Annual Vol', 'Max Drawdown', 'CV', 'Sharpe Ratio'],
-                    key="metric_y"
-                )
-            
-            # Create scatter plot
-            if metric_x != metric_y:
-                # Extract numerical values
-                def extract_numeric(val):
-                    if isinstance(val, str):
-                        # Remove $, %, and commas
-                        clean_val = val.replace('$', '').replace('%', '').replace(',', '')
-                        try:
-                            return float(clean_val)
-                        except:
-                            return 0
-                    return val
-                
-                scatter_df = pd.DataFrame(stats_data)
-                scatter_df[metric_x] = scatter_df[metric_x].apply(extract_numeric)
-                scatter_df[metric_y] = scatter_df[metric_y].apply(extract_numeric)
-                
-                fig_scatter = px.scatter(
-                    scatter_df,
-                    x=metric_x,
-                    y=metric_y,
-                    text='Category',
-                    size=[30] * len(scatter_df),
-                    color='Category',
-                    title=f'{metric_x} vs {metric_y}',
-                    labels={metric_x: metric_x, metric_y: metric_y}
-                )
-                
-                fig_scatter.update_traces(textposition='top center')
-                fig_scatter.update_layout(
-                    height=500,
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    showlegend=False
-                )
-                
-                st.plotly_chart(fig_scatter, use_container_width=True)
-    
-    with explorer_tab3:
-        st.markdown("##### Time Series Analysis Tools")
-        
-        # Select category for analysis
-        selected_category = st.selectbox(
-            "Select Category for Analysis",
-            list(data_dict.keys()),
-            key="ts_category"
-        )
-        
-        if selected_category:
-            data = data_dict[selected_category]
-            if 'assets' in data and not data['assets'].empty:
-                assets = data['assets']['Value']
-                
-                # Analysis options
-                analysis_type = st.selectbox(
-                    "Analysis Type",
-                    ["Autocorrelation Function", "Partial Autocorrelation", "Rolling Statistics", "Volatility Clustering"],
-                    key="ts_analysis"
-                )
-                
-                if analysis_type == "Autocorrelation Function":
-                    max_lag = st.slider("Maximum Lag", 10, 50, 20, key="acf_lag")
-                    returns = data['log_returns']['Log_Return'].dropna() if 'log_returns' in data else assets.pct_change().dropna() * 100
-                    
-                    if len(returns) > max_lag:
-                        # Calculate ACF
-                        from statsmodels.graphics.tsaplots import plot_acf
-                        import matplotlib.pyplot as plt
-                        
-                        fig, ax = plt.subplots(figsize=(10, 4))
-                        plot_acf(returns, lags=max_lag, ax=ax)
-                        plt.title(f'Autocorrelation Function - {selected_category}')
-                        st.pyplot(fig)
-                        
-                        # Statistical significance
-                        significance = 1.96 / np.sqrt(len(returns))
-                        acf_values = [returns.autocorr(lag=i) for i in range(1, max_lag + 1)]
-                        significant_lags = sum(1 for ac in acf_values if abs(ac) > significance)
-                        
-                        st.info(f"**{significant_lags} out of {max_lag} lags show significant autocorrelation (outside ±{significance:.3f})**")
-                
-                elif analysis_type == "Partial Autocorrelation":
-                    max_lag = st.slider("Maximum Lag", 10, 30, 15, key="pacf_lag")
-                    returns = data['log_returns']['Log_Return'].dropna() if 'log_returns' in data else assets.pct_change().dropna() * 100
-                    
-                    if len(returns) > max_lag:
-                        from statsmodels.graphics.tsaplots import plot_pacf
-                        import matplotlib.pyplot as plt
-                        
-                        fig, ax = plt.subplots(figsize=(10, 4))
-                        plot_pacf(returns, lags=max_lag, ax=ax)
-                        plt.title(f'Partial Autocorrelation Function - {selected_category}')
-                        st.pyplot(fig)
-                
-                elif analysis_type == "Rolling Statistics":
-                    window = st.slider("Rolling Window", 3, 24, 12, key="rolling_window")
-                    
-                    # Calculate rolling statistics
-                    rolling_mean = assets.rolling(window=window).mean()
-                    rolling_std = assets.rolling(window=window).std()
-                    rolling_skew = assets.rolling(window=window).skew()
-                    
-                    fig_rolling = make_subplots(
-                        rows=3, cols=1,
-                        subplot_titles=['Rolling Mean', 'Rolling Standard Deviation', 'Rolling Skewness'],
-                        vertical_spacing=0.1
-                    )
-                    
-                    fig_rolling.add_trace(
-                        go.Scatter(x=rolling_mean.index, y=rolling_mean, mode='lines', name='Mean',
-                                 line=dict(color='#27ae60')),
-                        row=1, col=1
-                    )
-                    
-                    fig_rolling.add_trace(
-                        go.Scatter(x=rolling_std.index, y=rolling_std, mode='lines', name='Std Dev',
-                                 line=dict(color='#e74c3c')),
-                        row=2, col=1
-                    )
-                    
-                    fig_rolling.add_trace(
-                        go.Scatter(x=rolling_skew.index, y=rolling_skew, mode='lines', name='Skewness',
-                                 line=dict(color='#3498db')),
-                        row=3, col=1
-                    )
-                    
-                    fig_rolling.update_layout(height=600, showlegend=False, plot_bgcolor='white', paper_bgcolor='white')
-                    st.plotly_chart(fig_rolling, use_container_width=True)
-                
-                elif analysis_type == "Volatility Clustering":
-                    returns = data['log_returns']['Log_Return'].dropna() if 'log_returns' in data else assets.pct_change().dropna() * 100
-                    
-                    if len(returns) > 20:
-                        # Calculate rolling volatility
-                        vol_window = st.slider("Volatility Window", 5, 30, 20, key="vol_window")
-                        rolling_vol = returns.rolling(window=vol_window).std()
-                        
-                        fig_vol_cluster = make_subplots(
-                            rows=2, cols=1,
-                            subplot_titles=['Returns', 'Rolling Volatility'],
-                            vertical_spacing=0.15
-                        )
-                        
-                        fig_vol_cluster.add_trace(
-                            go.Scatter(x=returns.index, y=returns, mode='lines', name='Returns',
-                                     line=dict(color='#2c3e50', width=1)),
-                            row=1, col=1
-                        )
-                        
-                        fig_vol_cluster.add_trace(
-                            go.Scatter(x=rolling_vol.index, y=rolling_vol, mode='lines', name='Volatility',
-                                     line=dict(color='#e74c3c', width=2),
-                                     fill='tozeroy', fillcolor='rgba(231, 76, 60, 0.2)'),
-                            row=2, col=1
-                        )
-                        
-                        fig_vol_cluster.update_layout(height=500, showlegend=False, plot_bgcolor='white', paper_bgcolor='white')
-                        st.plotly_chart(fig_vol_cluster, use_container_width=True)
-                        
-                        # Test for volatility clustering
-                        squared_returns = returns ** 2
-                        if len(squared_returns) >= 20:
-                            max_lag = min(20, len(squared_returns) // 2)
-                            autocorr = [squared_returns.autocorr(lag=i) for i in range(1, max_lag + 1)]
-                            
-                            significant_lags = sum(1 for ac in autocorr if abs(ac) > (1.96 / np.sqrt(len(squared_returns))))
-                            if significant_lags > 0:
-                                st.success(f"**Volatility clustering detected:** {significant_lags} significant lags in squared returns")
-                            else:
-                                st.info("No significant volatility clustering detected")
-    
-    with explorer_tab4:
-        st.markdown("##### Advanced Correlation Analysis")
-        
-        # Prepare correlation data
-        correlation_data = {}
-        for category, data in data_dict.items():
-            if 'log_returns' in data:
-                returns = data['log_returns']['Log_Return'].dropna()
-                if len(returns) > 0:
-                    correlation_data[category] = returns
-        
-        if len(correlation_data) >= 2:
-            # Create correlation matrix
-            corr_df = pd.DataFrame(correlation_data)
-            correlation_matrix = corr_df.corr()
-            
-            # Enhanced correlation heatmap
-            fig_corr = go.Figure(data=go.Heatmap(
-                z=correlation_matrix.values,
-                x=correlation_matrix.columns,
-                y=correlation_matrix.index,
-                colorscale='RdBu_r',
-                zmin=-1,
-                zmax=1,
-                text=correlation_matrix.round(2).values,
-                texttemplate='%{text}',
-                textfont={"size": 11},
-                hovertemplate='<b>%{y} vs %{x}</b><br>Correlation: %{z:.3f}<extra></extra>'
-            ))
-            
-            fig_corr.update_layout(
-                title='Return Correlation Matrix',
-                height=600,
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                xaxis=dict(tickangle=45)
-            )
-            
-            st.plotly_chart(fig_corr, use_container_width=True)
-            
-            # Network graph of correlations
-            st.markdown("##### Correlation Network")
-            
-            # Filter strong correlations
-            threshold = st.slider("Correlation Threshold", 0.3, 0.9, 0.5, 0.05, key="corr_threshold")
-            
-            strong_correlations = []
-            for i in range(len(correlation_matrix.columns)):
-                for j in range(i+1, len(correlation_matrix.columns)):
-                    corr = correlation_matrix.iloc[i, j]
-                    if abs(corr) >= threshold:
-                        strong_correlations.append({
-                            'Source': correlation_matrix.columns[i],
-                            'Target': correlation_matrix.columns[j],
-                            'Correlation': corr,
-                            'Strength': abs(corr)
-                        })
-            
-            if strong_correlations:
-                st.info(f"Found {len(strong_correlations)} correlation pairs with |r| ≥ {threshold}")
-                
-                # Display correlation pairs
-                corr_df_display = pd.DataFrame(strong_correlations)
-                corr_df_display['Correlation'] = corr_df_display['Correlation'].round(3)
-                st.dataframe(corr_df_display, use_container_width=True, height=200)
-                
-                # Create network visualization
-                import networkx as nx
-                
-                G = nx.Graph()
-                for corr in strong_correlations:
-                    G.add_edge(corr['Source'], corr['Target'], weight=corr['Strength'])
-                
-                # Create Plotly network visualization
-                pos = nx.spring_layout(G, seed=42)
-                
-                edge_trace = []
-                for edge in G.edges():
-                    x0, y0 = pos[edge[0]]
-                    x1, y1 = pos[edge[1]]
-                    edge_trace.append(go.Scatter(
-                        x=[x0, x1, None],
-                        y=[y0, y1, None],
-                        mode='lines',
-                        line=dict(width=G[edge[0]][edge[1]]*5, color='#666666'),
-                        hoverinfo='none'
-                    ))
-                
-                node_trace = go.Scatter(
-                    x=[pos[node][0] for node in G.nodes()],
-                    y=[pos[node][1] for node in G.nodes()],
-                    mode='markers+text',
-                    text=list(G.nodes()),
-                    textposition="top center",
-                    marker=dict(
-                        size=20,
-                        color=[data_dict[node]['color'] for node in G.nodes()],
-                        line=dict(color='#ffffff', width=2)
-                    ),
-                    hoverinfo='text'
-                )
-                
-                fig_network = go.Figure(data=edge_trace + [node_trace])
-                fig_network.update_layout(
-                    title=f'Correlation Network (|r| ≥ {threshold})',
-                    height=500,
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    showlegend=False,
-                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
-                )
-                
-                st.plotly_chart(fig_network, use_container_width=True)
 
 def main():
     """Main application function"""
@@ -1804,7 +1376,7 @@ def main():
         st.markdown("""
         ### 📈 Advanced Analytics Features
         
-        **New in This Version:**
+        **Key Features:**
         
         1. **Enhanced Statistical Analysis**
            - Time series decomposition (trend, seasonal, residual)
@@ -1817,20 +1389,14 @@ def main():
            - Crisis event modeling
         
         3. **Professional Visualizations**
-           - Sunburst asset composition charts
-           - Radar growth comparison
+           - Asset composition charts
+           - Growth trend analysis
            - Flow heatmaps
         
         4. **Advanced Data Explorer**
            - Complete historical tables
            - Statistical summaries
-           - Time series diagnostics
-           - Correlation analysis
-        
-        **Data Quality:**
-        - Realistic simulation based on actual fund statistics
-        - Proper time series properties
-        - Professional-grade analytics
+           - Data download functionality
         """)
     
     # Data source information at the top
@@ -1878,6 +1444,7 @@ def main():
     ])
     
     with main_tabs[0]:
+        create_executive_summary(data_dict, frequency)
         create_comprehensive_kpi_dashboard(data_dict)
         
         # Additional insights
