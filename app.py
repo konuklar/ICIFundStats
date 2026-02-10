@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import requests
 import warnings
 from scipy import stats
+from scipy.stats import norm
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, kpss
 warnings.filterwarnings('ignore')
@@ -404,6 +405,9 @@ def fetch_fred_data(series_id, start_date, end_date, frequency='monthly'):
                     elif frequency == 'monthly':
                         # Convert to monthly data (end of month)
                         df = df.resample('M').last().dropna()
+                    elif frequency == 'quarterly':
+                        # Convert to quarterly data
+                        df = df.resample('Q').last().dropna()
                     
                     return df, 'FRED'
                 else:
@@ -431,6 +435,9 @@ def generate_realistic_fallback_data(series_id, start_date, end_date, frequency)
     if frequency == 'monthly':
         dates = pd.date_range(start=start_date, end=end_date, freq='MS')
         periods_per_year = 12
+    elif frequency == 'quarterly':
+        dates = pd.date_range(start=start_date, end=end_date, freq='Q')
+        periods_per_year = 4
     else:
         dates = pd.date_range(start=start_date, end=end_date, freq='W-FRI')
         periods_per_year = 52
@@ -491,6 +498,10 @@ def generate_realistic_fallback_data(series_id, start_date, end_date, frequency)
         base_value = 10000000.0
         monthly_growth = 15000.0
         volatility = 1500000.0
+    
+    # Adjust growth based on frequency
+    if frequency == 'quarterly':
+        monthly_growth = monthly_growth * 3
     
     # Generate time index
     time_index = np.arange(n, dtype=np.float64)
@@ -617,7 +628,7 @@ def load_fund_data(selected_categories, start_date, frequency):
                     'source': series_info['source'],
                     'color': series_info['color'],
                     'frequency': use_freq,
-                    'periods_for_trend': 12 if use_freq == 'monthly' else 24,
+                    'periods_for_trend': 12 if use_freq == 'monthly' else (4 if use_freq == 'quarterly' else 24),
                     'data_source': data_source_type,
                     'api_status': api_status[category]
                 }
@@ -647,7 +658,16 @@ def calculate_comprehensive_statistics(data_dict):
                 # Calculate growth metrics
                 if len(assets) > 1:
                     total_growth = float((assets.iloc[-1] / assets.iloc[0] - 1) * 100)
-                    annual_growth = float(((assets.iloc[-1] / assets.iloc[0]) ** (12/len(assets)) - 1) * 100)
+                    
+                    # Calculate annual growth based on frequency
+                    if data.get('frequency') == 'monthly':
+                        periods_per_year = 12
+                    elif data.get('frequency') == 'quarterly':
+                        periods_per_year = 4
+                    else:
+                        periods_per_year = 52
+                    
+                    annual_growth = float(((assets.iloc[-1] / assets.iloc[0]) ** (periods_per_year/len(assets)) - 1) * 100)
                     stats_dict['total_growth'] = total_growth
                     stats_dict['annual_growth'] = annual_growth
                 
@@ -655,7 +675,16 @@ def calculate_comprehensive_statistics(data_dict):
                 if len(returns) > 0:
                     stats_dict['return_mean'] = float(returns.mean())
                     stats_dict['return_std'] = float(returns.std())
-                    stats_dict['sharpe_ratio'] = float((returns.mean() / returns.std() * np.sqrt(12)) if returns.std() > 0 else 0)
+                    
+                    # Calculate Sharpe ratio based on frequency
+                    if data.get('frequency') == 'monthly':
+                        annual_factor = np.sqrt(12)
+                    elif data.get('frequency') == 'quarterly':
+                        annual_factor = np.sqrt(4)
+                    else:
+                        annual_factor = np.sqrt(52)
+                    
+                    stats_dict['sharpe_ratio'] = float((returns.mean() / returns.std() * annual_factor) if returns.std() > 0 else 0)
                     stats_dict['max_drawdown'] = float(calculate_max_drawdown(assets))
                     
                     # Stationarity tests
@@ -782,7 +811,7 @@ def create_professional_growth_charts(data_dict):
         )
     
     with col2:
-        if analysis_type == "Rolling Returns":
+        if analysis_type in ["Rolling Returns", "Risk Analysis"]:
             window = st.slider("Rolling Window Size", 1, 24, 12, key="growth_window")
         else:
             window = 12
@@ -919,7 +948,7 @@ def create_comprehensive_kpi_dashboard(data_dict):
     
     with col2:
         # Calculate weighted average growth
-        if category_stats:
+        if category_stats and total_assets > 0:
             weighted_growth = sum(s['Assets'] * s['1Y Growth'] for s in category_stats) / total_assets
             growth_color = "#27ae60" if weighted_growth > 0 else "#e74c3c"
             growth_icon = "↗️" if weighted_growth > 0 else "↘️"
@@ -931,10 +960,21 @@ def create_comprehensive_kpi_dashboard(data_dict):
                 <div style='font-size: 0.8rem; opacity: 0.8;'>1-Year Annualized</div>
             </div>
             """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class='kpi-card-secondary'>
+                <div style='font-size: 0.9rem; opacity: 0.9;'>Weighted Growth</div>
+                <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>0.0%</div>
+                <div style='font-size: 0.8rem; opacity: 0.8;'>1-Year Annualized</div>
+            </div>
+            """, unsafe_allow_html=True)
     
     with col3:
         # Calculate data quality metric
-        data_quality = (fred_data_count / len(category_stats)) * 100 if category_stats else 0
+        if category_stats:
+            data_quality = (fred_data_count / len(category_stats)) * 100
+        else:
+            data_quality = 0
         
         st.markdown(f"""
         <div class='kpi-card-tertiary'>
@@ -946,12 +986,17 @@ def create_comprehensive_kpi_dashboard(data_dict):
     
     with col4:
         # Count categories with positive growth
-        positive_growth = sum(1 for s in category_stats if s['1Y Growth'] > 0)
+        if category_stats:
+            positive_growth = sum(1 for s in category_stats if s['1Y Growth'] > 0)
+            total_categories = len(category_stats)
+        else:
+            positive_growth = 0
+            total_categories = 0
         
         st.markdown(f"""
         <div class='kpi-card'>
             <div style='font-size: 0.9rem; opacity: 0.9;'>Growth Distribution</div>
-            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>{positive_growth}/{len(category_stats)}</div>
+            <div style='font-size: 1.8rem; font-weight: bold; margin: 0.5rem 0;'>{positive_growth}/{total_categories}</div>
             <div style='font-size: 0.8rem; opacity: 0.8;'>Categories Growing</div>
         </div>
         """, unsafe_allow_html=True)
@@ -972,11 +1017,14 @@ def create_comprehensive_kpi_dashboard(data_dict):
             else:  # Millions
                 assets_display = f"${assets:,.0f}M"
             
+            # Calculate share
+            share = (assets/total_assets*100) if total_assets > 0 else 0
+            
             display_stats.append({
                 'Category': stat['Category'],
                 'Assets': assets_display,
                 '1Y Growth': f"{stat['1Y Growth']:+.1f}%",
-                'Share of Total': f"{(assets/total_assets*100):.1f}%",
+                'Share of Total': f"{share:.1f}%",
                 'Data Source': 'FRED' if stat['Is_FRED'] else 'Fallback'
             })
         
@@ -1071,7 +1119,9 @@ def create_advanced_quantitative_analysis(data_dict):
                 growth_data = []
                 for stat in stats_data:
                     try:
-                        growth = float(stat['Annual Growth'].replace('%', '').replace('+', ''))
+                        # Extract numeric growth value
+                        growth_str = stat['Annual Growth'].replace('%', '').replace('+', '')
+                        growth = float(growth_str)
                         growth_data.append({
                             'Category': stat['Category'],
                             'Annual Growth': growth
@@ -1138,8 +1188,15 @@ def create_advanced_quantitative_analysis(data_dict):
                 
                 if len(returns) > 0:
                     # Calculate return statistics
-                    annual_return = returns.mean() * 12
-                    annual_vol = returns.std() * np.sqrt(12)
+                    if data.get('frequency') == 'monthly':
+                        annual_factor = 12
+                    elif data.get('frequency') == 'quarterly':
+                        annual_factor = 4
+                    else:
+                        annual_factor = 52
+                    
+                    annual_return = returns.mean() * annual_factor
+                    annual_vol = returns.std() * np.sqrt(annual_factor)
                     sharpe_ratio = annual_return / annual_vol if annual_vol > 0 else 0
                     
                     # Display metrics
@@ -1173,9 +1230,9 @@ def create_advanced_quantitative_analysis(data_dict):
                             color_discrete_sequence=['#3498db']
                         )
                         
-                        # Add normal distribution overlay
+                        # Add normal distribution overlay - FIXED LINE
                         x_norm = np.linspace(returns.min(), returns.max(), 100)
-                        y_norm = stats.norm.pdf(x_norm, returns.mean(), returns.std()) * len(returns) * (returns.max() - returns.min()) / 30
+                        y_norm = norm.pdf(x_norm, returns.mean(), returns.std()) * len(returns) * (returns.max() - returns.min()) / 30
                         
                         fig_hist.add_trace(go.Scatter(
                             x=x_norm,
@@ -1225,14 +1282,17 @@ def create_advanced_quantitative_analysis(data_dict):
                     
                     # Normality test
                     if len(returns) <= 5000:
-                        stat, p_value = stats.shapiro(returns)
-                        
-                        st.markdown(f"""
-                        ##### Normality Test Results (Shapiro-Wilk)
-                        - **Test Statistic:** {stat:.4f}
-                        - **p-value:** {p_value:.4f}
-                        - **Interpretation:** {'Returns appear normal (fail to reject H₀)' if p_value > 0.05 else 'Returns do not appear normal (reject H₀)'}
-                        """)
+                        try:
+                            stat, p_value = stats.shapiro(returns)
+                            
+                            st.markdown(f"""
+                            ##### Normality Test Results (Shapiro-Wilk)
+                            - **Test Statistic:** {stat:.4f}
+                            - **p-value:** {p_value:.4f}
+                            - **Interpretation:** {'Returns appear normal (fail to reject H₀)' if p_value > 0.05 else 'Returns do not appear normal (reject H₀)'}
+                            """)
+                        except:
+                            st.info("Could not perform normality test (sample size too large)")
     
     with qa_tab3:
         st.markdown("##### Risk Metrics Analysis")
@@ -1695,73 +1755,53 @@ def main():
     main_tabs = st.tabs([
         "📊 KPI Dashboard",
         "📈 Growth Analysis",
-        "🔍 Quantitative Analysis",
-        "📋 Data Explorer"
-    ])
-    
-    with main_tabs[0]:
-        create_executive_summary(data_dict, frequency)
-        create_comprehensive_kpi_dashboard(data_dict)
+        "🔍 Quantitative
+    # ... [Previous code continues up to the main tabs] ...
+
+        # Quantitative Analysis Tab
+        main_tabs = st.tabs([
+            "📊 KPI Dashboard",
+            "📈 Growth Analysis",
+            "🔍 Quantitative Analysis",
+            "📋 Data Explorer"
+        ])
         
-        # Additional insights
-        st.markdown("### 🎯 Data Quality Insights")
-        insights_col1, insights_col2, insights_col3 = st.columns(3)
+        with main_tabs[0]:
+            create_comprehensive_kpi_dashboard(data_dict)
         
-        with insights_col1:
-            fred_count = sum(1 for cat, data in data_dict.items() if 'FRED' in data.get('data_source', ''))
-            st.markdown(f"""
-            <div class='analysis-card'>
-                <strong>📊 Data Sources</strong><br>
-                {fred_count}/{len(data_dict)} categories using FRED data
+        with main_tabs[1]:
+            create_professional_growth_charts(data_dict)
+        
+        with main_tabs[2]:
+            if show_quantitative:
+                create_advanced_quantitative_analysis(data_dict)
+            else:
+                st.info("Enable 'Show Quantitative Analysis' in sidebar to view this section")
+        
+        with main_tabs[3]:
+            if show_data_explorer:
+                create_data_explorer_tab(data_dict)
+            else:
+                st.info("Enable 'Show Advanced Data Explorer' in sidebar to view this section")
+        
+        # Footer
+        st.markdown("---")
+        st.markdown("""
+        <div class="footer">
+            <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 1rem;">
+                <span>📊 Institutional Fund Flow Analytics</span>
+                <span>•</span>
+                <span>📈 Powered by FRED API</span>
+                <span>•</span>
+                <span>🔒 Professional Analysis Tool</span>
             </div>
-            """, unsafe_allow_html=True)
-        
-        with insights_col2:
-            avg_points = np.mean([len(data['assets']) for data in data_dict.values()])
-            st.markdown(f"""
-            <div class='analysis-card'>
-                <strong>📈 Data Coverage</strong><br>
-                Average {avg_points:.0f} data points per series
+            <div style="font-size: 0.8rem; color: #666666;">
+                Data Sources: FRED Economic Data | Last Updated: {}
+                <br>
+                For professional use only. All values in millions of USD unless specified.
             </div>
-            """, unsafe_allow_html=True)
-        
-        with insights_col3:
-            total_assets = sum(data['assets'].iloc[-1, 0] for data in data_dict.values())
-            scale = "Trillions" if total_assets >= 1000000 else "Billions" if total_assets >= 1000 else "Millions"
-            st.markdown(f"""
-            <div class='analysis-card'>
-                <strong>💰 Total Scale</strong><br>
-                Analysis at {scale} USD scale
-            </div>
-            """, unsafe_allow_html=True)
-    
-    with main_tabs[1]:
-        create_professional_growth_charts(data_dict)
-    
-    with main_tabs[2]:
-        if show_quantitative:
-            create_advanced_quantitative_analysis(data_dict)
-        else:
-            st.info("Enable 'Show Quantitative Analysis' in the sidebar to access this section")
-    
-    with main_tabs[3]:
-        if show_data_explorer:
-            create_data_explorer_tab(data_dict)
-        else:
-            st.info("Enable 'Show Advanced Data Explorer' in the sidebar to access this section")
-    
-    # Footer
-    st.markdown(f"""
-    <div class='footer'>
-        <p>Institutional Fund Flow Analytics Dashboard v4.0 | Federal Reserve Economic Data (FRED)</p>
-        <p>Professional Quantitative Analysis | Proper Scale Formatting | Realistic Data Simulation</p>
-        <p>Analysis Period: {years_back} Years | Frequency: {frequency.capitalize()} | Categories: {len(selected_categories)}</p>
-        <p style='font-size: 0.75rem; color: #999999; margin-top: 1rem;'>
-            M = Millions ($1,000,000) | B = Billions ($1,000,000,000) | T = Trillions ($1,000,000,000,000)
-            <br>All values in USD. Fallback data used when FRED series unavailable.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """.format(datetime.today().strftime('%B %d, %Y')), unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
