@@ -1187,6 +1187,11 @@ def create_advanced_quantitative_analysis(data_dict):
                 returns = data['log_returns']['Log_Return'].dropna()
                 
                 if len(returns) > 0:
+                    # Convert to numpy array and ensure it's 1D
+                    returns_array = returns.values
+                    if returns_array.ndim > 1:
+                        returns_array = returns_array.flatten()
+                    
                     # Calculate return statistics
                     if data.get('frequency') == 'monthly':
                         annual_factor = 12
@@ -1246,53 +1251,126 @@ def create_advanced_quantitative_analysis(data_dict):
                         st.plotly_chart(fig_hist, use_container_width=True)
                     
                     with col2:
-                        # QQ plot for normality
-                        qq = stats.probplot(returns, dist="norm")
-                        x = np.array([qq[0][0][0], qq[0][0][-1]])
-                        
-                        fig_qq = go.Figure()
-                        
-                        fig_qq.add_trace(go.Scatter(
-                            x=qq[0][0],
-                            y=qq[0][1],
-                            mode='markers',
-                            name='Actual Returns',
-                            marker=dict(color='#3498db', size=8)
-                        ))
-                        
-                        fig_qq.add_trace(go.Scatter(
-                            x=x,
-                            y=qq[1][1] + qq[1][0] * x,
-                            mode='lines',
-                            name='Normal Distribution',
-                            line=dict(color='#e74c3c', dash='dash')
-                        ))
-                        
-                        fig_qq.update_layout(
-                            title='Q-Q Plot (Normality Test)',
-                            xaxis_title='Theoretical Quantiles',
-                            yaxis_title='Sample Quantiles',
-                            height=400,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white',
-                            showlegend=True
-                        )
-                        
-                        st.plotly_chart(fig_qq, use_container_width=True)
+                        try:
+                            # QQ plot for normality - FIXED VERSION
+                            # Ensure we have a clean 1D array
+                            clean_returns = returns.dropna().values
+                            if clean_returns.ndim > 1:
+                                clean_returns = clean_returns.flatten()
+                            
+                            # Remove any infinite or NaN values
+                            clean_returns = clean_returns[np.isfinite(clean_returns)]
+                            
+                            if len(clean_returns) > 1:
+                                # Use scipy's probplot
+                                qq = stats.probplot(clean_returns, dist="norm")
+                                
+                                fig_qq = go.Figure()
+                                
+                                # Plot the points
+                                fig_qq.add_trace(go.Scatter(
+                                    x=qq[0][0],
+                                    y=qq[0][1],
+                                    mode='markers',
+                                    name='Actual Returns',
+                                    marker=dict(color='#3498db', size=8)
+                                ))
+                                
+                                # Plot the line
+                                x_line = np.array([qq[0][0][0], qq[0][0][-1]])
+                                y_line = qq[1][1] + qq[1][0] * x_line
+                                
+                                fig_qq.add_trace(go.Scatter(
+                                    x=x_line,
+                                    y=y_line,
+                                    mode='lines',
+                                    name='Normal Distribution',
+                                    line=dict(color='#e74c3c', dash='dash')
+                                ))
+                                
+                                fig_qq.update_layout(
+                                    title='Q-Q Plot (Normality Test)',
+                                    xaxis_title='Theoretical Quantiles',
+                                    yaxis_title='Sample Quantiles',
+                                    height=400,
+                                    plot_bgcolor='white',
+                                    paper_bgcolor='white',
+                                    showlegend=True
+                                )
+                                
+                                st.plotly_chart(fig_qq, use_container_width=True)
+                            else:
+                                st.warning("Not enough valid data points for Q-Q plot")
+                                
+                        except Exception as e:
+                            st.warning(f"Could not create Q-Q plot: {str(e)}")
+                            # Alternative: create a simple scatter of sorted returns
+                            try:
+                                clean_returns = returns.dropna().values
+                                if clean_returns.ndim > 1:
+                                    clean_returns = clean_returns.flatten()
+                                clean_returns = clean_returns[np.isfinite(clean_returns)]
+                                
+                                if len(clean_returns) > 1:
+                                    sorted_returns = np.sort(clean_returns)
+                                    theoretical_quantiles = np.sort(np.random.normal(np.mean(clean_returns), np.std(clean_returns), len(clean_returns)))
+                                    
+                                    fig_simple = go.Figure()
+                                    fig_simple.add_trace(go.Scatter(
+                                        x=theoretical_quantiles,
+                                        y=sorted_returns,
+                                        mode='markers',
+                                        name='Returns',
+                                        marker=dict(color='#3498db', size=8)
+                                    ))
+                                    
+                                    # Add diagonal line
+                                    min_val = min(theoretical_quantiles.min(), sorted_returns.min())
+                                    max_val = max(theoretical_quantiles.max(), sorted_returns.max())
+                                    fig_simple.add_trace(go.Scatter(
+                                        x=[min_val, max_val],
+                                        y=[min_val, max_val],
+                                        mode='lines',
+                                        name='Normal Line',
+                                        line=dict(color='#e74c3c', dash='dash')
+                                    ))
+                                    
+                                    fig_simple.update_layout(
+                                        title='Return Distribution Plot',
+                                        xaxis_title='Theoretical Quantiles',
+                                        yaxis_title='Sample Quantiles',
+                                        height=400,
+                                        plot_bgcolor='white',
+                                        paper_bgcolor='white',
+                                        showlegend=True
+                                    )
+                                    
+                                    st.plotly_chart(fig_simple, use_container_width=True)
+                            except:
+                                st.info("Could not create alternative distribution plot")
                     
                     # Normality test
                     if len(returns) <= 5000:
                         try:
-                            stat, p_value = stats.shapiro(returns)
+                            # Ensure clean data for Shapiro-Wilk test
+                            test_data = returns.dropna().values
+                            if test_data.ndim > 1:
+                                test_data = test_data.flatten()
+                            test_data = test_data[np.isfinite(test_data)]
                             
-                            st.markdown(f"""
-                            ##### Normality Test Results (Shapiro-Wilk)
-                            - **Test Statistic:** {stat:.4f}
-                            - **p-value:** {p_value:.4f}
-                            - **Interpretation:** {'Returns appear normal (fail to reject H₀)' if p_value > 0.05 else 'Returns do not appear normal (reject H₀)'}
-                            """)
-                        except:
-                            st.info("Could not perform normality test (sample size too large)")
+                            if len(test_data) >= 3 and len(test_data) <= 5000:
+                                stat, p_value = stats.shapiro(test_data)
+                                
+                                st.markdown(f"""
+                                ##### Normality Test Results (Shapiro-Wilk)
+                                - **Test Statistic:** {stat:.4f}
+                                - **p-value:** {p_value:.4f}
+                                - **Interpretation:** {'Returns appear normal (fail to reject H₀)' if p_value > 0.05 else 'Returns do not appear normal (reject H₀)'}
+                                """)
+                            else:
+                                st.info(f"Shapiro-Wilk test requires 3-5000 data points. Available: {len(test_data)}")
+                        except Exception as e:
+                            st.info(f"Could not perform Shapiro-Wilk test: {str(e)}")
     
     with qa_tab3:
         st.markdown("##### Risk Metrics Analysis")
